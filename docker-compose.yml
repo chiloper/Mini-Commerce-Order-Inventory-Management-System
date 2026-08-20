@@ -18,9 +18,9 @@ services:
     restart: always
     environment: 
       MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: my_database
-      MYSQL_USER: admin
-      MYSQL_PASSWORD: test 
+      MYSQL_DATABASE: myweb
+      MYSQL_USER: myuser
+      MYSQL_PASSWORD: mypassword 
     ports:
       - "3306:3306"
     volumes:
