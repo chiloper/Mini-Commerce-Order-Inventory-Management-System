@@ -17,16 +17,25 @@ model User {
   orders Order[]
 }
 
-model Product {
-  id       Int     @id @default(autoincrement())
-  sku      String  @unique
+model Category {
+  id       Int       @id @default(autoincrement())
   name     String
-  price    Int
-  stock    Int
-  isActive Boolean
+  products Product[]
+}
+
+model Product {
+  id         Int     @id @default(autoincrement())
+  sku        String  @unique
+  name       String
+  price      Int
+  stock      Int
+  catagoryId Int?
+  isActive   Boolean
 
   cartItems  CartItem[]
   orderItems OrderItem[]
+
+  catagory Category? @relation(fields: [catagoryId], references: [id])
 }
 
 model Cart {
@@ -50,15 +59,19 @@ model CartItem {
 }
 
 model Order {
-  id        Int      @id @default(autoincrement())
-  userId    Int?
-  status    Boolean
-  total     Int
-  createdAt DateTime
+  id                Int      @id @default(autoincrement())
+  userId            Int?
+  status            Boolean
+  total             Int
+  promotionId       Int?
+  discountBreakdown Json
+  createdAt         DateTime
 
   orderItems OrderItem[]
 
-  user User? @relation(fields: [userId], references: [id])
+  promotion       Promotion?       @relation(fields: [promotionId], references: [id])
+  user            User?            @relation(fields: [userId], references: [id])
+  idempotencyKeys IdempotencyKey[]
 }
 
 model OrderItem {
@@ -71,9 +84,21 @@ model OrderItem {
 }
 
 model Promotion {
-  id        Int      @id @default(autoincrement())
-  code      String
-  type      String
-  value     Int
-  expiresAt DateTime
+  id         Int      @id @default(autoincrement())
+  code       String
+  type       String
+  value      Int
+  usageLimit Int
+  usedCount  Int
+  expiresAt  DateTime
+  orders     Order[]
+}
+
+model IdempotencyKey {
+  id              Int    @id @default(autoincrement())
+  key             String @unique
+  orderId         Int?
+  responsePayload Json
+
+  order Order? @relation(fields: [orderId], references: [id])
 }
