@@ -1,6 +1,13 @@
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  // NestJS compiles to CommonJS; the generator's ESM default emits
+  // `import.meta.url`, which is a runtime SyntaxError under CJS.
+  moduleFormat = "cjs"
+  runtime      = "nodejs"
+  // Emit extensionless relative imports so both tsc and ts-node resolve the
+  // generated .ts sources (a ".js" specifier has no file to point at here).
+  importFileExtension = ""
 }
 
 datasource db {
@@ -8,13 +15,36 @@ datasource db {
 }
 
 model User {
-  id           Int    @id @default(autoincrement())
-  email        String @unique
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
   passwordHash String
   role         String
+  createdAt    DateTime @default(now())
 
-  Cart   Cart[]
-  orders Order[]
+  Cart          Cart[]
+  orders        Order[]
+  refreshTokens RefreshToken[]
+}
+
+/// One row per issued refresh token. Only the SHA-256 hash of the token is
+/// stored, so a database leak does not hand out usable sessions.
+model RefreshToken {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  tokenHash String    @unique
+  /// Rotation lineage: every token minted from the same login shares a familyId.
+  /// Replaying a rotated token revokes the whole family.
+  familyId  String
+  expiresAt DateTime
+  createdAt DateTime  @default(now())
+  /// Set when the token is rotated away, logged out, or revoked by reuse detection.
+  revokedAt DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([familyId])
+  @@index([expiresAt])
 }
 
 model Category {
