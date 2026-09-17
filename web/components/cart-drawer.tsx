@@ -191,18 +191,34 @@ export default function CartDrawer({
                       display: "grid",
                       placeItems: "center",
                       borderRadius: "var(--radius-sm)",
+                      overflow: "hidden",
+                      position: "relative",
                     }}
                   >
-                    <span
-                      style={{
-                        fontSize: "9px",
-                        letterSpacing: ".1em",
-                        textTransform: "uppercase",
-                        color: "var(--color-neutral-700)",
-                      }}
-                    >
-                      shot
-                    </span>
+                    {product.imageUrl ? (
+                      <img
+                        src={product.imageUrl}
+                        alt={product.name}
+                        style={{
+                          position: "absolute",
+                          inset: 0,
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                        }}
+                      />
+                    ) : (
+                      <span
+                        style={{
+                          fontSize: "9px",
+                          letterSpacing: ".1em",
+                          textTransform: "uppercase",
+                          color: "var(--color-neutral-700)",
+                        }}
+                      >
+                        shot
+                      </span>
+                    )}
                   </div>
 
                   <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "4px", minWidth: 0 }}>

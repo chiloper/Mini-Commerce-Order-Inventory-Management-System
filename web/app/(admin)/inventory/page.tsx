@@ -11,6 +11,7 @@ import {
   deleteProductAction,
 } from "../../../lib/ecommerce-actions";
 import { getSessionUserAction } from "../../../lib/auth/actions";
+import { uploadImage, uploadMultipleImages } from "../../../lib/cloudinary";
 
 export default function AdminInventoryPage() {
   const router = useRouter();
@@ -27,8 +28,12 @@ export default function AdminInventoryPage() {
   const [createStock, setCreateStock] = useState<number>(20);
   const [createCatId, setCreateCatId] = useState<number | undefined>(undefined);
   const [createDesc, setCreateDesc] = useState("");
+  const [createImages, setCreateImages] = useState<string[]>([]);
+  const [createInputUrl, setCreateInputUrl] = useState<string>("");
   const [createError, setCreateError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [uploadingCreateImage, setUploadingCreateImage] = useState(false);
+  const [uploadCreateStatus, setUploadCreateStatus] = useState<string>("");
 
   // Edit Product Modal state
   const [editProduct, setEditProduct] = useState<any | null>(null);
@@ -37,14 +42,47 @@ export default function AdminInventoryPage() {
   const [editStock, setEditStock] = useState<number>(0);
   const [editCatId, setEditCatId] = useState<number | undefined>(undefined);
   const [editDesc, setEditDesc] = useState("");
+  const [editImages, setEditImages] = useState<string[]>([]);
+  const [editInputUrl, setEditInputUrl] = useState<string>("");
   const [editError, setEditError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [uploadingEditImage, setUploadingEditImage] = useState(false);
+  const [uploadEditStatus, setUploadEditStatus] = useState<string>("");
 
   // Quick Refill Modal state
   const [refillProduct, setRefillProduct] = useState<any | null>(null);
   const [refillStock, setRefillStock] = useState<number>(0);
   const [refilling, setRefilling] = useState(false);
+
+  const handleMultipleImageFiles = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+    currentImages: string[],
+    setImages: (imgs: string[]) => void,
+    onErr: (msg: string) => void,
+    setUploading: (val: boolean) => void,
+    setStatus: (msg: string) => void
+  ) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setUploading(true);
+    setStatus(`กำลังเตรียมอัปโหลด ${files.length} รูปภาพขึ้น Cloudinary...`);
+
+    const { urls, errors } = await uploadMultipleImages(files, (done, total) => {
+      setStatus(`กำลังอัปโหลดรูปภาพ (${done}/${total}) ขึ้น Cloudinary...`);
+    });
+
+    if (urls.length > 0) {
+      setImages([...currentImages, ...urls]);
+      setStatus(`✓ อัปโหลดสำเร็จ ${urls.length} รูป!`);
+    }
+    if (errors.length > 0) {
+      onErr(errors.join("; "));
+    }
+    setUploading(false);
+    e.target.value = "";
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -121,6 +159,10 @@ export default function AdminInventoryPage() {
     setCreatePrice(990);
     setCreateStock(20);
     setCreateDesc("");
+    setCreateImages([]);
+    setCreateInputUrl("");
+    setUploadCreateStatus("");
+    setUploadingCreateImage(false);
     setCreateError(null);
     setShowCreateModal(true);
   };
@@ -141,6 +183,8 @@ export default function AdminInventoryPage() {
       stock: Number(createStock),
       catagoryId: createCatId ? Number(createCatId) : undefined,
       description: createDesc.trim() || undefined,
+      imageUrl: createImages[0] || undefined,
+      images: createImages,
       isActive: true,
     });
 
@@ -161,6 +205,16 @@ export default function AdminInventoryPage() {
     setEditStock(p.stock || 0);
     setEditCatId(p.catagoryId || p.category?.id || (categories[0]?.id));
     setEditDesc(p.description || "");
+    const initialImages =
+      p.images && Array.isArray(p.images) && p.images.length > 0
+        ? p.images
+        : p.imageUrl
+        ? [p.imageUrl]
+        : [];
+    setEditImages(initialImages);
+    setEditInputUrl("");
+    setUploadEditStatus("");
+    setUploadingEditImage(false);
     setEditError(null);
   };
 
@@ -176,6 +230,8 @@ export default function AdminInventoryPage() {
       stock: Number(editStock),
       catagoryId: editCatId ? Number(editCatId) : undefined,
       description: editDesc.trim() || undefined,
+      imageUrl: editImages[0] || "",
+      images: editImages,
     });
 
     if (res.ok) {
@@ -299,7 +355,36 @@ export default function AdminInventoryPage() {
                 {filtered.map((p) => (
                   <tr key={p.id} style={{ background: p.rowBg }}>
                     <td style={{ color: "var(--color-neutral-700)", fontWeight: 500 }}>{p.sku}</td>
-                    <td style={{ fontWeight: 600 }}>{p.name}</td>
+                    <td style={{ fontWeight: 600 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                        <div
+                          style={{
+                            width: "36px",
+                            height: "36px",
+                            borderRadius: "var(--radius-sm)",
+                            overflow: "hidden",
+                            flex: "none",
+                            background: "var(--color-neutral-200)",
+                            border: "1px solid var(--color-divider)",
+                            display: "grid",
+                            placeItems: "center",
+                          }}
+                        >
+                          {p.imageUrl ? (
+                            <img
+                              src={p.imageUrl}
+                              alt={p.name}
+                              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                            />
+                          ) : (
+                            <span style={{ fontSize: "8px", color: "var(--color-neutral-600)", letterSpacing: ".06em", textTransform: "uppercase" }}>
+                              shot
+                            </span>
+                          )}
+                        </div>
+                        <span>{p.name}</span>
+                      </div>
+                    </td>
                     <td style={{ color: "var(--color-neutral-700)", fontSize: "13px" }}>
                       {p.catagory?.name || p.category?.name || "-"}
                     </td>
@@ -455,6 +540,176 @@ export default function AdminInventoryPage() {
                 </div>
               </div>
 
+              {/* Product Multi-Image Gallery Section */}
+              <div className="field">
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                  <label>แกลเลอรีรูปภาพสินค้า ({createImages.length} รูป)</label>
+                  <span style={{ fontSize: "11px", color: "var(--color-neutral-700)" }}>
+                    *รูปแรกสุดจะถูกใช้เป็นรูปหลัก (Cover)
+                  </span>
+                </div>
+
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "var(--space-2)",
+                    padding: "var(--space-3)",
+                    background: "var(--color-bg)",
+                    borderRadius: "var(--radius-sm)",
+                    border: "1px dashed var(--color-divider)",
+                  }}
+                >
+                  {/* Gallery Thumbnails List */}
+                  {createImages.length > 0 ? (
+                    <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
+                      {createImages.map((imgUrl, idx) => (
+                        <div
+                          key={idx}
+                          style={{
+                            position: "relative",
+                            width: "72px",
+                            height: "72px",
+                            borderRadius: "var(--radius-sm)",
+                            border: idx === 0 ? "2px solid var(--color-accent)" : "1px solid var(--color-divider)",
+                            overflow: "hidden",
+                            background: "var(--color-surface)",
+                          }}
+                        >
+                          <img
+                            src={imgUrl}
+                            alt={`Preview ${idx + 1}`}
+                            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                          />
+                          {idx === 0 && (
+                            <span
+                              style={{
+                                position: "absolute",
+                                bottom: 0,
+                                left: 0,
+                                right: 0,
+                                background: "var(--color-accent)",
+                                color: "#fff",
+                                fontSize: "9px",
+                                textAlign: "center",
+                                padding: "1px 0",
+                                fontWeight: 600,
+                              }}
+                            >
+                              รูปหลัก
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => setCreateImages(createImages.filter((_, i) => i !== idx))}
+                            style={{
+                              position: "absolute",
+                              top: "2px",
+                              right: "2px",
+                              width: "18px",
+                              height: "18px",
+                              borderRadius: "50%",
+                              background: "rgba(0,0,0,0.6)",
+                              color: "#fff",
+                              border: "none",
+                              cursor: "pointer",
+                              display: "grid",
+                              placeItems: "center",
+                              fontSize: "10px",
+                              lineHeight: 1,
+                              padding: 0,
+                            }}
+                            title="ลบรูปนี้"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ textAlign: "center", padding: "12px 0", color: "var(--color-neutral-600)", fontSize: "13px" }}>
+                      ยังไม่มีรูปภาพในแกลเลอรี (สามารถเลือกหลายไฟล์ได้พร้อมกัน)
+                    </div>
+                  )}
+
+                  {/* Actions: Multi-file select and URL input */}
+                  <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center", marginTop: "4px" }}>
+                    <label
+                      className="btn btn-secondary"
+                      style={{ fontSize: "12px", padding: "5px 12px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "6px" }}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="17 8 12 3 7 8" />
+                        <line x1="12" y1="3" x2="12" y2="15" />
+                      </svg>
+                      {uploadingCreateImage ? "กำลังอัปโหลด..." : "+ เลือกรูปภาพ (หลายรูปพร้อมกันได้)"}
+                      <input
+                        type="file"
+                        multiple
+                        accept="image/*"
+                        style={{ display: "none" }}
+                        disabled={uploadingCreateImage}
+                        onChange={(e) =>
+                          handleMultipleImageFiles(
+                            e,
+                            createImages,
+                            setCreateImages,
+                            (err) => setCreateError(err),
+                            setUploadingCreateImage,
+                            setUploadCreateStatus
+                          )
+                        }
+                      />
+                    </label>
+
+                    {createImages.length > 0 && (
+                      <button
+                        type="button"
+                        className="btn btn-ghost"
+                        style={{ fontSize: "12px", padding: "4px 8px", color: "var(--color-accent-2-700)" }}
+                        onClick={() => {
+                          setCreateImages([]);
+                          setUploadCreateStatus("");
+                        }}
+                      >
+                        ลบทั้งหมด
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Add by URL */}
+                  <div style={{ display: "flex", gap: "6px", alignItems: "center", marginTop: "2px" }}>
+                    <input
+                      className="input"
+                      style={{ fontSize: "12px", minHeight: "30px", height: "30px", flex: 1 }}
+                      value={createInputUrl}
+                      onChange={(e) => setCreateInputUrl(e.target.value)}
+                      placeholder="หรือวาง URL รูปภาพ (https://...)"
+                    />
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      style={{ fontSize: "12px", padding: "0 10px", height: "30px" }}
+                      onClick={() => {
+                        if (createInputUrl.trim()) {
+                          setCreateImages([...createImages, createInputUrl.trim()]);
+                          setCreateInputUrl("");
+                        }
+                      }}
+                    >
+                      + เพิ่ม
+                    </button>
+                  </div>
+
+                  {uploadCreateStatus && (
+                    <span style={{ fontSize: "11px", color: uploadCreateStatus.includes("✓") ? "var(--color-accent)" : "var(--color-accent-2-700)", fontWeight: 500 }}>
+                      {uploadCreateStatus}
+                    </span>
+                  )}
+                </div>
+              </div>
+
               <div className="field">
                 <label>คำอธิบายสินค้า</label>
                 <textarea
@@ -471,14 +726,14 @@ export default function AdminInventoryPage() {
                   type="button"
                   className="btn btn-secondary"
                   onClick={() => setShowCreateModal(false)}
-                  disabled={creating}
+                  disabled={creating || uploadingCreateImage}
                 >
                   ยกเลิก
                 </button>
                 <button
                   type="submit"
                   className="btn btn-primary"
-                  disabled={creating}
+                  disabled={creating || uploadingCreateImage}
                 >
                   {creating ? "กำลังบันทึกลง TiDB..." : "บันทึกสินค้าใหม่"}
                 </button>
@@ -595,6 +850,176 @@ export default function AdminInventoryPage() {
                 </select>
               </div>
 
+              {/* Product Multi-Image Gallery */}
+              <div className="field">
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                  <label>รูปภาพสินค้า (อัปโหลดได้หลายรูปพร้อมกัน)</label>
+                  <span style={{ fontSize: "11px", color: "var(--color-neutral-600)" }}>
+                    {editImages.length} รูป (รูปแรกเป็นรูปหลัก)
+                  </span>
+                </div>
+
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "var(--space-2)",
+                    padding: "var(--space-3)",
+                    background: "var(--color-bg)",
+                    borderRadius: "var(--radius-sm)",
+                    border: "1px dashed var(--color-divider)",
+                  }}
+                >
+                  {/* Thumbnails list */}
+                  {editImages.length > 0 ? (
+                    <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
+                      {editImages.map((imgUrl, idx) => (
+                        <div
+                          key={idx}
+                          style={{
+                            position: "relative",
+                            width: "72px",
+                            height: "72px",
+                            borderRadius: "var(--radius-sm)",
+                            border: idx === 0 ? "2px solid var(--color-accent)" : "1px solid var(--color-divider)",
+                            overflow: "hidden",
+                            background: "var(--color-surface)",
+                          }}
+                        >
+                          <img
+                            src={imgUrl}
+                            alt={`Preview ${idx + 1}`}
+                            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                          />
+                          {idx === 0 && (
+                            <span
+                              style={{
+                                position: "absolute",
+                                bottom: 0,
+                                left: 0,
+                                right: 0,
+                                background: "var(--color-accent)",
+                                color: "#fff",
+                                fontSize: "9px",
+                                textAlign: "center",
+                                padding: "1px 0",
+                                fontWeight: 600,
+                              }}
+                            >
+                              รูปหลัก
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => setEditImages(editImages.filter((_, i) => i !== idx))}
+                            style={{
+                              position: "absolute",
+                              top: "2px",
+                              right: "2px",
+                              width: "18px",
+                              height: "18px",
+                              borderRadius: "50%",
+                              background: "rgba(0,0,0,0.6)",
+                              color: "#fff",
+                              border: "none",
+                              cursor: "pointer",
+                              display: "grid",
+                              placeItems: "center",
+                              fontSize: "10px",
+                              lineHeight: 1,
+                              padding: 0,
+                            }}
+                            title="ลบรูปนี้"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ textAlign: "center", padding: "12px 0", color: "var(--color-neutral-600)", fontSize: "13px" }}>
+                      ยังไม่มีรูปภาพในแกลเลอรี (สามารถเลือกหลายไฟล์ได้พร้อมกัน)
+                    </div>
+                  )}
+
+                  {/* Actions: Multi-file select and URL input */}
+                  <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center", marginTop: "4px" }}>
+                    <label
+                      className="btn btn-secondary"
+                      style={{ fontSize: "12px", padding: "5px 12px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "6px" }}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="17 8 12 3 7 8" />
+                        <line x1="12" y1="3" x2="12" y2="15" />
+                      </svg>
+                      {uploadingEditImage ? "กำลังอัปโหลด..." : "+ เลือกรูปภาพ (หลายรูปพร้อมกันได้)"}
+                      <input
+                        type="file"
+                        multiple
+                        accept="image/*"
+                        style={{ display: "none" }}
+                        disabled={uploadingEditImage}
+                        onChange={(e) =>
+                          handleMultipleImageFiles(
+                            e,
+                            editImages,
+                            setEditImages,
+                            (err) => setEditError(err),
+                            setUploadingEditImage,
+                            setUploadEditStatus
+                          )
+                        }
+                      />
+                    </label>
+
+                    {editImages.length > 0 && (
+                      <button
+                        type="button"
+                        className="btn btn-ghost"
+                        style={{ fontSize: "12px", padding: "4px 8px", color: "var(--color-accent-2-700)" }}
+                        onClick={() => {
+                          setEditImages([]);
+                          setUploadEditStatus("");
+                        }}
+                      >
+                        ลบทั้งหมด
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Add by URL */}
+                  <div style={{ display: "flex", gap: "6px", alignItems: "center", marginTop: "2px" }}>
+                    <input
+                      className="input"
+                      style={{ fontSize: "12px", minHeight: "30px", height: "30px", flex: 1 }}
+                      value={editInputUrl}
+                      onChange={(e) => setEditInputUrl(e.target.value)}
+                      placeholder="หรือวาง URL รูปภาพ (https://...)"
+                    />
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      style={{ fontSize: "12px", padding: "0 10px", height: "30px" }}
+                      onClick={() => {
+                        if (editInputUrl.trim()) {
+                          setEditImages([...editImages, editInputUrl.trim()]);
+                          setEditInputUrl("");
+                        }
+                      }}
+                    >
+                      + เพิ่ม
+                    </button>
+                  </div>
+
+                  {uploadEditStatus && (
+                    <span style={{ fontSize: "11px", color: uploadEditStatus.includes("✓") ? "var(--color-accent)" : "var(--color-accent-2-700)", fontWeight: 500 }}>
+                      {uploadEditStatus}
+                    </span>
+                  )}
+                </div>
+              </div>
+
               <div className="field">
                 <label>คำอธิบายสินค้า</label>
                 <textarea
@@ -610,7 +1035,7 @@ export default function AdminInventoryPage() {
                   type="button"
                   className="btn btn-ghost"
                   onClick={handleDeleteProduct}
-                  disabled={saving || deleting}
+                  disabled={saving || deleting || uploadingEditImage}
                   style={{ color: "var(--color-accent-2-700)" }}
                 >
                   {deleting ? "กำลังลบ..." : "ลบสินค้านี้"}
@@ -621,14 +1046,14 @@ export default function AdminInventoryPage() {
                     type="button"
                     className="btn btn-secondary"
                     onClick={() => setEditProduct(null)}
-                    disabled={saving}
+                    disabled={saving || uploadingEditImage}
                   >
                     ยกเลิก
                   </button>
                   <button
                     type="submit"
                     className="btn btn-primary"
-                    disabled={saving}
+                    disabled={saving || uploadingEditImage}
                   >
                     {saving ? "กำลังบันทึก..." : "บันทึกการแก้ไข"}
                   </button>

@@ -1,4 +1,4 @@
-import { IsBoolean, IsInt, IsNotEmpty, IsOptional, IsString, Min } from "class-validator";
+import { IsArray, IsBoolean, IsInt, IsNotEmpty, IsOptional, IsString, Min } from "class-validator";
 import { Type } from "class-transformer";
 
 export class CreateProductDto {
@@ -28,6 +28,14 @@ export class CreateProductDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean = true;
+
+  @IsOptional()
+  @IsString()
+  imageUrl?: string;
+
+  @IsOptional()
+  @IsArray()
+  images?: string[];
 }
 
 export class UpdateProductDto {
@@ -55,6 +63,14 @@ export class UpdateProductDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @IsOptional()
+  @IsString()
+  imageUrl?: string;
+
+  @IsOptional()
+  @IsArray()
+  images?: string[];
 }
 
 export class CreateCategoryDto {

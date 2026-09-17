@@ -7,6 +7,25 @@ import { Category, Product } from "../../../generated/prisma/client";
 export class ProductRepository {
   constructor(private readonly prisma: PrismaService) {}
 
+  private transformProduct(p: any): any {
+    if (!p) return p;
+    let parsedImages: string[] = [];
+    if (p.images) {
+      try {
+        parsedImages = typeof p.images === "string" ? JSON.parse(p.images) : p.images;
+      } catch {
+        parsedImages = [];
+      }
+    }
+    if (parsedImages.length === 0 && p.imageUrl) {
+      parsedImages = [p.imageUrl];
+    }
+    return {
+      ...p,
+      images: parsedImages,
+    };
+  }
+
   async findAll(query: QueryProductDto): Promise<(Product & { catagory: Category | null })[]> {
     const where: any = {};
 
@@ -31,35 +50,48 @@ export class ProductRepository {
       ];
     }
 
-    return await this.prisma.product.findMany({
+    const list = await this.prisma.product.findMany({
       where,
       include: {
         catagory: true,
       },
       orderBy: { id: "asc" },
     });
+
+    return list.map((p) => this.transformProduct(p));
   }
 
   async findById(id: number): Promise<(Product & { catagory: Category | null }) | null> {
-    return await this.prisma.product.findUnique({
+    const product = await this.prisma.product.findUnique({
       where: { id },
       include: {
         catagory: true,
       },
     });
+    return this.transformProduct(product);
   }
 
   async findBySku(sku: string): Promise<(Product & { catagory: Category | null }) | null> {
-    return await this.prisma.product.findUnique({
+    const product = await this.prisma.product.findUnique({
       where: { sku },
       include: {
         catagory: true,
       },
     });
+    return this.transformProduct(product);
   }
 
   async create(data: CreateProductDto): Promise<Product> {
-    return await this.prisma.product.create({
+    let primaryUrl = data.imageUrl;
+    let imagesJson: string | null = null;
+    if (data.images && Array.isArray(data.images)) {
+      imagesJson = JSON.stringify(data.images);
+      if (!primaryUrl && data.images.length > 0) {
+        primaryUrl = data.images[0];
+      }
+    }
+
+    const created = await this.prisma.product.create({
       data: {
         sku: data.sku,
         name: data.name,
@@ -67,13 +99,29 @@ export class ProductRepository {
         stock: data.stock,
         catagoryId: data.catagoryId ?? null,
         isActive: data.isActive ?? true,
+        imageUrl: primaryUrl ?? null,
+        images: imagesJson,
       },
       include: { catagory: true },
     });
+    return this.transformProduct(created);
   }
 
   async update(id: number, data: UpdateProductDto): Promise<Product> {
-    return await this.prisma.product.update({
+    let primaryUrl = data.imageUrl;
+    let imagesJson: string | undefined = undefined;
+    if (data.images !== undefined) {
+      if (Array.isArray(data.images)) {
+        imagesJson = JSON.stringify(data.images);
+        if (primaryUrl === undefined && data.images.length > 0) {
+          primaryUrl = data.images[0];
+        }
+      } else {
+        imagesJson = null as any;
+      }
+    }
+
+    const updated = await this.prisma.product.update({
       where: { id },
       data: {
         ...(data.name !== undefined && { name: data.name }),
@@ -81,9 +129,12 @@ export class ProductRepository {
         ...(data.stock !== undefined && { stock: data.stock }),
         ...(data.catagoryId !== undefined && { catagoryId: data.catagoryId }),
         ...(data.isActive !== undefined && { isActive: data.isActive }),
+        ...(primaryUrl !== undefined && { imageUrl: primaryUrl }),
+        ...(imagesJson !== undefined && { images: imagesJson }),
       },
       include: { catagory: true },
     });
+    return this.transformProduct(updated);
   }
 
   async delete(id: number): Promise<Product> {

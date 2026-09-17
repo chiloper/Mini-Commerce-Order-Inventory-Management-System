@@ -16,6 +16,7 @@ function ProductDetailContent() {
   const skuParam = searchParams.get("sku");
 
   const [product, setProduct] = useState<any>(null);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [qty, setQty] = useState(1);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
@@ -23,6 +24,7 @@ function ProductDetailContent() {
   useEffect(() => {
     async function load() {
       setLoading(true);
+      setSelectedImage(null);
       if (idParam) {
         const p = await getProductById(Number(idParam));
         setProduct(p);
@@ -83,6 +85,14 @@ function ProductDetailContent() {
   const soldOut = product.stock === 0;
   const addLabel = soldOut ? "แจ้งเตือนเมื่อมีของ" : "ใส่ตะกร้า";
 
+  const imagesList: string[] =
+    Array.isArray(product.images) && product.images.length > 0
+      ? product.images
+      : product.imageUrl
+      ? [product.imageUrl]
+      : [];
+  const activeImage = selectedImage || imagesList[0] || null;
+
   const handleAdd = async () => {
     if (soldOut) return;
     setAdding(true);
@@ -109,7 +119,7 @@ function ProductDetailContent() {
           alignItems: "start",
         }}
       >
-        {/* Left column: Halftone Shot and Thumbnails */}
+        {/* Left column: Main Product Shot and Interactive Thumbnails */}
         <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
           <div
             className="halftone"
@@ -120,33 +130,93 @@ function ProductDetailContent() {
               display: "grid",
               placeItems: "center",
               borderRadius: "var(--radius-sm)",
+              overflow: "hidden",
+              position: "relative",
             }}
           >
-            <span
-              style={{
-                fontSize: "11px",
-                letterSpacing: ".16em",
-                textTransform: "uppercase",
-                color: "var(--color-neutral-700)",
-              }}
-            >
-              product shot · 1600×1200
-            </span>
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "var(--space-2)" }}>
-            {[1, 2, 3, 4].map((i) => (
-              <div
-                key={i}
+            {activeImage ? (
+              <img
+                src={activeImage}
+                alt={product.name}
                 style={{
-                  aspectRatio: "1",
-                  background:
-                    "repeating-linear-gradient(135deg, var(--color-neutral-200) 0 5px, var(--color-neutral-300) 5px 10px)",
-                  borderRadius: "var(--radius-sm)",
-                  border: i === 1 ? "1px solid var(--color-accent)" : "1px solid transparent",
+                  position: "absolute",
+                  inset: 0,
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                  transition: "opacity 0.2s ease",
                 }}
               />
-            ))}
+            ) : (
+              <span
+                style={{
+                  fontSize: "11px",
+                  letterSpacing: ".16em",
+                  textTransform: "uppercase",
+                  color: "var(--color-neutral-700)",
+                }}
+              >
+                product shot · 1600×1200
+              </span>
+            )}
+          </div>
+
+          {/* Interactive Thumbnails */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: `repeat(${Math.min(Math.max(4, imagesList.length), 6)}, 1fr)`,
+              gap: "var(--space-2)",
+            }}
+          >
+            {Array.from({ length: Math.max(4, imagesList.length) }).map((_, idx) => {
+              const imgUrl = imagesList[idx];
+              const isSelected = imgUrl ? activeImage === imgUrl : false;
+              return (
+                <button
+                  key={idx}
+                  type="button"
+                  disabled={!imgUrl}
+                  onClick={() => imgUrl && setSelectedImage(imgUrl)}
+                  style={{
+                    all: "unset",
+                    cursor: imgUrl ? "pointer" : "default",
+                    aspectRatio: "1",
+                    background:
+                      "repeating-linear-gradient(135deg, var(--color-neutral-200) 0 5px, var(--color-neutral-300) 5px 10px)",
+                    borderRadius: "var(--radius-sm)",
+                    border: isSelected ? "2px solid var(--color-accent)" : "1px solid var(--color-divider)",
+                    overflow: "hidden",
+                    position: "relative",
+                    display: "block",
+                    boxShadow: isSelected ? "0 0 0 1px var(--color-accent)" : "none",
+                  }}
+                  title={imgUrl ? `ดูภาพที่ ${idx + 1}` : undefined}
+                >
+                  {imgUrl ? (
+                    <img
+                      src={imgUrl}
+                      alt={`Thumbnail ${idx + 1}`}
+                      style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        display: "grid",
+                        placeItems: "center",
+                        fontSize: "9px",
+                        color: "var(--color-neutral-500)",
+                        letterSpacing: "0.1em",
+                      }}
+                    >
+                      · {idx + 1} ·
+                    </div>
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
 

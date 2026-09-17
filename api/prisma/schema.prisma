@@ -61,6 +61,8 @@ model Product {
   stock      Int
   catagoryId Int?
   isActive   Boolean
+  imageUrl   String? @db.Text
+  images     String? @db.Text
 
   cartItems  CartItem[]
   orderItems OrderItem[]

@@ -270,7 +270,7 @@ export default function ProductListPage() {
                 transition: "transform 0.15s ease, box-shadow 0.15s ease",
               }}
             >
-              {/* Product Halftone Shot */}
+              {/* Product Halftone Shot / Image */}
               <Link
                 href={`/product?id=${p.id}`}
                 style={{ all: "unset", cursor: "pointer", display: "block" }}
@@ -284,18 +284,34 @@ export default function ProductListPage() {
                     display: "grid",
                     placeItems: "center",
                     borderRadius: "var(--radius-sm)",
+                    overflow: "hidden",
+                    position: "relative",
                   }}
                 >
-                  <span
-                    style={{
-                      fontSize: "10px",
-                      letterSpacing: ".14em",
-                      textTransform: "uppercase",
-                      color: "var(--color-neutral-700)",
-                    }}
-                  >
-                    product shot · {p.sku}
-                  </span>
+                  {p.imageUrl ? (
+                    <img
+                      src={p.imageUrl}
+                      alt={p.name}
+                      style={{
+                        position: "absolute",
+                        inset: 0,
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                      }}
+                    />
+                  ) : (
+                    <span
+                      style={{
+                        fontSize: "10px",
+                        letterSpacing: ".14em",
+                        textTransform: "uppercase",
+                        color: "var(--color-neutral-700)",
+                      }}
+                    >
+                      product shot · {p.sku}
+                    </span>
+                  )}
                 </div>
               </Link>
 
