@@ -47,13 +47,15 @@ export class OrderService {
     let discountAmount = 0;
     let description = "";
 
-    if (promo.type === "percentage") {
+    const promoType = (promo.type || "").toLowerCase();
+
+    if (promoType === "percentage") {
       discountAmount = Math.round((dto.subtotal * promo.value) / 100);
       description = `ส่วนลด ${promo.value}% จากยอดสินค้า`;
-    } else if (promo.type === "fixed") {
+    } else if (promoType === "fixed") {
       discountAmount = Math.min(dto.subtotal, promo.value);
       description = `ส่วนลด ฿${promo.value.toLocaleString("th-TH")}`;
-    } else if (promo.type === "freeship") {
+    } else if (promoType === "freeship") {
       discountAmount = 50; // Standard shipping fee
       description = `ส่งฟรี (มูลค่า ฿50)`;
     }
@@ -64,7 +66,10 @@ export class OrderService {
       type: promo.type,
       value: promo.value,
       discountAmount,
+      discount: discountAmount,
       description,
+      valid: true,
+      promotion: promo,
     };
   }
 
@@ -260,13 +265,34 @@ export class OrderService {
       (acc, it) => acc + it.price * it.quantity,
       0
     );
-    const discountAmount = Math.max(0, dto.discountAmount || 0);
-    const shippingFee =
+
+    let promotionId: number | null = null;
+    let discountAmount = Math.max(0, dto.discountAmount || 0);
+    let promoDescription = "";
+    let promoCode: string | null = null;
+
+    if (dto.promotionCode && dto.promotionCode.trim()) {
+      const promoResult = await this.validatePromotion({
+        code: dto.promotionCode.trim(),
+        subtotal,
+      });
+      promotionId = promoResult.id;
+      discountAmount = promoResult.discountAmount;
+      promoDescription = promoResult.description;
+      promoCode = promoResult.code;
+    }
+
+    let shippingFee =
       dto.shippingFee !== undefined
         ? Math.max(0, dto.shippingFee)
         : subtotal >= 1500
         ? 0
         : 50;
+
+    if (promoCode && promoCode.toUpperCase() === "FREESHIP") {
+      shippingFee = 0;
+    }
+
     const total = Math.max(0, subtotal - discountAmount + shippingFee);
     const statusText = dto.statusText || "paid";
 
@@ -288,12 +314,20 @@ export class OrderService {
         }
       }
 
+      if (promotionId) {
+        await tx.promotion.update({
+          where: { id: promotionId },
+          data: { usedCount: { increment: 1 } },
+        });
+      }
+
       const discountBreakdown = {
         subtotal,
         discountAmount,
         shippingFee,
-        promoCode: null,
+        promoCode,
         promoDescription:
+          promoDescription ||
           dto.note ||
           (dto.channel
             ? `สร้างคำสั่งซื้อด้วยตนเอง (${dto.channel})`
@@ -314,7 +348,7 @@ export class OrderService {
           userId: adminUserId,
           status: true,
           total,
-          promotionId: null,
+          promotionId,
           discountBreakdown,
           createdAt: new Date(),
           orderItems: {

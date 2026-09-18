@@ -149,6 +149,10 @@ export class CreateManualOrderDto {
   shippingFee?: number;
 
   @IsOptional()
+  @IsString()
+  promotionCode?: string;
+
+  @IsOptional()
   @IsInt()
   @Min(0)
   @Type(() => Number)

@@ -166,14 +166,14 @@ export default function PreviewDualFramePage() {
       return;
     }
     const res = await validatePromotion(c, subtotal);
-    if (res.ok && res.data?.valid) {
+    if (res.ok && res.data && res.data.valid !== false) {
       setPromoOk(true);
-      setDiscount(res.data.discount || 0);
+      setDiscount(res.data.discountAmount ?? res.data.discount ?? 0);
       setPromoMsg(`ใช้โค้ด ${c} แล้ว — ${res.data.description || "รับส่วนลดพิเศษ"}`);
     } else {
       setPromoOk(false);
       setDiscount(0);
-      setPromoMsg(res.data?.message || `โค้ด ${c} ใช้ไม่ได้หรือหมดโควตาแล้ว`);
+      setPromoMsg(res.data?.message || res.error || `โค้ด "${c}" ใช้ไม่ได้หรือหมดโควตาแล้ว`);
     }
   };
 

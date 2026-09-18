@@ -8,6 +8,7 @@ import {
   updateOrderStatus,
   getProducts,
   createManualOrderAction,
+  validatePromotion,
 } from "../../../lib/ecommerce-actions";
 import { getSessionUserAction } from "../../../lib/auth/actions";
 import type { Order, Product } from "@/types/ecommerce";
@@ -64,7 +65,17 @@ export default function AdminOrderPage() {
   const [paymentMethod, setPaymentMethod] = useState("โอนเงิน / พร้อมเพย์");
   const [statusText, setStatusText] = useState("paid");
   const [shippingFee, setShippingFee] = useState<number>(0);
-  const [discountAmount, setDiscountAmount] = useState<number>(0);
+  const [promoCodeInput, setPromoCodeInput] = useState<string>("");
+  const [appliedPromo, setAppliedPromo] = useState<{
+    id?: number;
+    code: string;
+    type?: string;
+    value?: number;
+    discountAmount: number;
+    description: string;
+  } | null>(null);
+  const [validatingPromo, setValidatingPromo] = useState(false);
+  const [promoError, setPromoError] = useState<string | null>(null);
   const [note, setNote] = useState("");
   const [selectedProductId, setSelectedProductId] = useState<string>("");
   const [manualItems, setManualItems] = useState<ManualOrderItemRow[]>([]);
@@ -96,23 +107,23 @@ export default function AdminOrderPage() {
 
     let statusLabel = "กำลังจัดของ";
     let statusCls = "bg-sky-50 text-sky-800 border border-sky-300";
-    let stockNote = "ตัดสต็อกแล้ว";
+    let stockNote = "● ตัดสต็อกแล้ว";
     let stockColor = "text-emerald-700";
 
     if (rawStatus === "wait" || rawStatus === "pending") {
       statusLabel = "รอชำระ";
-      statusCls = "bg-neutral-100 text-neutral-800 border border-neutral-300";
-      stockNote = "ยังไม่ตัดสต็อก";
-      stockColor = "text-neutral-700";
+      statusCls = "bg-amber-50 text-amber-800 border border-amber-300";
+      stockNote = "○ ยังไม่ตัดสต็อก";
+      stockColor = "text-amber-700";
     } else if (rawStatus === "shipped") {
       statusLabel = "จัดส่งแล้ว";
       statusCls = "bg-emerald-50 text-emerald-800 border border-emerald-300";
-      stockNote = "ตัดสต็อกแล้ว";
+      stockNote = "● ตัดสต็อกแล้ว";
       stockColor = "text-emerald-700";
     } else if (rawStatus === "cancelled") {
       statusLabel = "ยกเลิก";
       statusCls = "bg-rose-50 text-rose-800 border border-rose-300";
-      stockNote = "คืนสต็อกแล้ว";
+      stockNote = "↩ คืนสต็อกแล้ว";
       stockColor = "text-rose-700";
     }
 
@@ -187,7 +198,9 @@ export default function AdminOrderPage() {
     setPaymentMethod("โอนเงิน / พร้อมเพย์");
     setStatusText("paid");
     setShippingFee(0);
-    setDiscountAmount(0);
+    setPromoCodeInput("");
+    setAppliedPromo(null);
+    setPromoError(null);
     setNote("");
     setSelectedProductId("");
     setManualItems([]);
@@ -264,9 +277,69 @@ export default function AdminOrderPage() {
     (acc, it) => acc + it.price * it.quantity,
     0
   );
+
+  const handleApplyPromoCode = async (codeToApply?: string) => {
+    const code = (codeToApply || promoCodeInput).trim().toUpperCase();
+    if (!code) {
+      setPromoError("กรุณากรอกโค้ดโปรโมชั่น");
+      return;
+    }
+    if (manualSubtotal <= 0) {
+      setPromoError("กรุณาเลือกสินค้าอย่างน้อย 1 รายการก่อนใช้โค้ด");
+      return;
+    }
+
+    setValidatingPromo(true);
+    setPromoError(null);
+
+    const res = await validatePromotion(code, manualSubtotal);
+    if (!res.ok || !res.data) {
+      setPromoError(res.error || `โค้ด "${code}" ไม่ถูกต้องหรือหมดอายุแล้ว`);
+      setValidatingPromo(false);
+      return;
+    }
+
+    const promoData = res.data;
+    setAppliedPromo({
+      id: promoData.id || promoData.promotion?.id,
+      code: promoData.code || promoData.promotion?.code || code,
+      type: promoData.type || promoData.promotion?.type,
+      value: promoData.value || promoData.promotion?.value,
+      discountAmount: promoData.discountAmount || 0,
+      description: promoData.description || `ส่วนลดจากโค้ด ${code}`,
+    });
+
+    if (code === "FREESHIP" || promoData.type === "freeship") {
+      setShippingFee(0);
+    }
+
+    setPromoCodeInput("");
+    setValidatingPromo(false);
+  };
+
+  const handleRemovePromo = () => {
+    setAppliedPromo(null);
+    setPromoError(null);
+    setPromoCodeInput("");
+  };
+
+  const promoType = (appliedPromo?.type || "").toLowerCase();
+  const manualDiscount = appliedPromo
+    ? promoType === "percentage" && appliedPromo.value
+      ? Math.round((manualSubtotal * appliedPromo.value) / 100)
+      : promoType === "freeship"
+      ? 0
+      : Math.min(manualSubtotal, appliedPromo.discountAmount || 0)
+    : 0;
+
+  const effectiveShippingFee =
+    appliedPromo?.code === "FREESHIP" || promoType === "freeship"
+      ? 0
+      : Number(shippingFee) || 0;
+
   const manualGrandTotal = Math.max(
     0,
-    manualSubtotal - (Number(discountAmount) || 0) + (Number(shippingFee) || 0)
+    manualSubtotal - manualDiscount + effectiveShippingFee
   );
 
   const handleSubmitManualOrder = async (e: React.FormEvent) => {
@@ -301,8 +374,9 @@ export default function AdminOrderPage() {
       paymentMethod,
       channel,
       statusText,
-      shippingFee: Number(shippingFee) || 0,
-      discountAmount: Number(discountAmount) || 0,
+      shippingFee: effectiveShippingFee,
+      discountAmount: manualDiscount,
+      promotionCode: appliedPromo ? appliedPromo.code : undefined,
       note: note.trim() || undefined,
       items: manualItems.map((it) => ({
         productId: it.productId,
@@ -427,70 +501,89 @@ export default function AdminOrderPage() {
 
           {/* Orders Table */}
           <div className="border border-divider rounded-2xl bg-surface overflow-x-auto shadow-2xs">
-            <table className="w-full text-left text-xs border-collapse">
+            <table className="w-full text-left text-xs border-collapse min-w-[800px]">
               <thead>
                 <tr className="border-b border-divider text-neutral-700 font-bold tracking-wider uppercase text-[11px] bg-bg/40">
-                  <th className="py-3.5 px-4">เลขออเดอร์</th>
-                  <th className="py-3.5 px-4">ลูกค้า</th>
-                  <th className="py-3.5 px-4">รายการ</th>
-                  <th className="py-3.5 px-4">ยอดชำระ</th>
-                  <th className="py-3.5 px-4">การชำระ</th>
-                  <th className="py-3.5 px-4">สถานะ</th>
-                  <th className="py-3.5 px-4">สต็อก</th>
-                  <th className="py-3.5 px-4">เวลา</th>
-                  <th className="py-3.5 px-4 text-right">การกระทำ</th>
+                  <th className="py-3.5 px-4 whitespace-nowrap min-w-[130px]">เลขออเดอร์</th>
+                  <th className="py-3.5 px-4 min-w-[160px]">ลูกค้า</th>
+                  <th className="py-3.5 px-4 whitespace-nowrap min-w-[110px]">ยอดชำระ</th>
+                  <th className="py-3.5 px-4 whitespace-nowrap min-w-[130px]">วิธีชำระเงิน</th>
+                  <th className="py-3.5 px-4 whitespace-nowrap min-w-[140px]">สถานะ & สต็อก</th>
+                  <th className="py-3.5 px-4 whitespace-nowrap min-w-[110px]">เวลา</th>
+                  <th className="py-3.5 px-4 text-right whitespace-nowrap min-w-[80px]">การกระทำ</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-divider">
                 {loading ? (
                   <tr>
-                    <td colSpan={9} className="py-16 text-center text-sm font-medium text-neutral-700">
+                    <td colSpan={7} className="py-16 text-center text-sm font-medium text-neutral-700">
                       กำลังโหลดข้อมูลคำสั่งซื้อ...
                     </td>
                   </tr>
                 ) : filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="py-16 text-center text-sm font-medium text-neutral-700">
+                    <td colSpan={7} className="py-16 text-center text-sm font-medium text-neutral-700">
                       ไม่พบรายการคำสั่งซื้อ
                     </td>
                   </tr>
                 ) : (
                   filtered.map((o: DecoratedOrder) => (
                     <tr key={o.id} className="hover:bg-bg/50 transition-colors">
-                      <td className="py-3.5 px-4 font-mono font-bold text-text">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span>#{o.id}</span>
+                      {/* เลขออเดอร์ + ป้ายช่องทาง */}
+                      <td className="py-3.5 px-4 font-mono">
+                        <div className="font-bold text-text text-sm">#{o.id}</div>
+                        <div className="mt-1">
                           {o.isManual ? (
-                            <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-purple-50 text-purple-700 border border-purple-200 whitespace-nowrap">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold bg-purple-50 text-purple-700 border border-purple-200 whitespace-nowrap shadow-2xs">
                               {o.channel}
                             </span>
                           ) : (
-                            <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-sky-50 text-sky-700 border border-sky-200 whitespace-nowrap">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold bg-sky-50 text-sky-700 border border-sky-200 whitespace-nowrap shadow-2xs">
                               เว็บ
                             </span>
                           )}
                         </div>
                       </td>
+
+                      {/* ข้อมูลลูกค้า */}
                       <td className="py-3.5 px-4">
-                        <div className="font-semibold text-text">{o.customerName}</div>
-                        <div className="text-[11px] text-neutral-600">{o.phone}</div>
+                        <div className="font-semibold text-text text-sm leading-snug">{o.customerName}</div>
+                        <div className="text-[11px] text-neutral-500 font-mono mt-0.5">{o.phone}</div>
                       </td>
-                      <td className="py-3.5 px-4 text-neutral-800 font-medium">{o.itemsCount} รายการ</td>
-                      <td className="py-3.5 px-4 font-bold text-text">{formatPrice(o.totalAmount)}</td>
-                      <td className="py-3.5 px-4 text-neutral-700">{o.paymentMethod}</td>
-                      <td className="py-3.5 px-4">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${o.statusCls}`}>
-                          {o.statusLabel}
+
+                      {/* ยอดชำระ และ จำนวนรายการ */}
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <div className="font-bold text-text text-sm">{formatPrice(o.totalAmount)}</div>
+                        <div className="text-[11px] text-neutral-500 mt-0.5">{o.itemsCount} รายการ</div>
+                      </td>
+
+                      {/* วิธีชำระเงิน */}
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <span className="inline-block text-neutral-800 font-medium">
+                          {o.paymentMethod}
                         </span>
                       </td>
-                      <td className={`py-3.5 px-4 font-semibold ${o.stockColor}`}>
-                        {o.stockNote}
+
+                      {/* สถานะ และ การตัดสต็อก */}
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <div>
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold whitespace-nowrap ${o.statusCls}`}>
+                            {o.statusLabel}
+                          </span>
+                        </div>
+                        <div className={`text-[10px] font-medium mt-1 whitespace-nowrap ${o.stockColor}`}>
+                          {o.stockNote}
+                        </div>
                       </td>
-                      <td className="py-3.5 px-4 text-neutral-700 font-mono">
-                        <div className="font-medium">{o.dateStr}</div>
-                        <div className="text-[10px] text-neutral-600">{o.time}</div>
+
+                      {/* วันที่ และ เวลา */}
+                      <td className="py-3.5 px-4 text-neutral-700 font-mono whitespace-nowrap">
+                        <div className="font-medium text-xs text-text">{o.dateStr}</div>
+                        <div className="text-[10px] text-neutral-500 mt-0.5">{o.time}</div>
                       </td>
-                      <td className="py-3.5 px-4 text-right">
+
+                      {/* การกระทำ */}
+                      <td className="py-3.5 px-4 text-right whitespace-nowrap">
                         <button
                           type="button"
                           onClick={() => setSelectedOrder(o)}
@@ -896,20 +989,87 @@ export default function AdminOrderPage() {
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between text-neutral-700 gap-4">
-                      <span>ส่วนลดเพิ่มเติม:</span>
-                      <div className="flex items-center gap-1">
-                        <span className="text-neutral-500 text-[11px]">฿</span>
-                        <input
-                          type="number"
-                          min={0}
-                          value={discountAmount}
-                          onChange={(e) => setDiscountAmount(Number(e.target.value))}
-                          placeholder="0"
-                          className="w-20 bg-surface border border-divider rounded-lg px-2 py-1 text-right text-text font-bold outline-none focus:ring-1 focus:ring-accent"
-                        />
+                    {/* Promotion Code Section */}
+                    <div className="flex flex-col gap-2 pt-1 pb-1 border-y border-divider/60">
+                      <div className="flex items-center justify-between">
+                        <label className="font-semibold text-neutral-700 flex items-center gap-1.5">
+                          <svg className="w-3.5 h-3.5 text-accent-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
+                            <line x1="7" y1="7" x2="7.01" y2="7" />
+                          </svg>
+                          <span>โค้ดโปรโมชั่น / ส่วนลด:</span>
+                        </label>
+                        {appliedPromo && (
+                          <span className="text-xs font-bold text-emerald-700 font-mono">
+                            -฿{manualDiscount.toLocaleString("th-TH")}
+                          </span>
+                        )}
                       </div>
+
+                      {appliedPromo ? (
+                        <div className="flex items-center justify-between p-2.5 rounded-xl bg-emerald-50 border border-emerald-200">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="px-2 py-0.5 rounded-md bg-emerald-700 text-white font-mono font-bold text-xs">
+                              {appliedPromo.code}
+                            </span>
+                            <span className="text-xs text-emerald-800 font-medium">
+                              {appliedPromo.description}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={handleRemovePromo}
+                            className="w-6 h-6 rounded-lg text-neutral-500 hover:text-rose-600 hover:bg-rose-50 flex items-center justify-center transition-colors cursor-pointer shrink-0"
+                            title="ยกเลิกโค้ดนี้"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col gap-1.5">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              value={promoCodeInput}
+                              onChange={(e) => {
+                                setPromoCodeInput(e.target.value.toUpperCase());
+                                setPromoError(null);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault();
+                                  handleApplyPromoCode();
+                                }
+                              }}
+                              placeholder="กรอกโค้ด เช่น SUMMER10, FREESHIP"
+                              className="flex-1 bg-surface border border-divider rounded-xl px-3.5 py-1.5 text-text font-mono font-bold text-xs uppercase outline-none focus:ring-2 focus:ring-accent placeholder:font-normal placeholder:normal-case"
+                            />
+                            <button
+                              type="button"
+                              disabled={validatingPromo || !promoCodeInput.trim()}
+                              onClick={() => handleApplyPromoCode()}
+                              className="px-4 py-1.5 rounded-xl bg-accent !text-white font-bold text-xs hover:brightness-105 active:scale-95 transition-all disabled:opacity-50 cursor-pointer shadow-2xs shrink-0"
+                            >
+                              {validatingPromo ? "กำลังตรวจ..." : "ใช้โค้ด"}
+                            </button>
+                          </div>
+                          {promoError && (
+                            <p className="m-0 text-[11px] font-medium text-rose-600">
+                              {promoError}
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </div>
+
+                    {appliedPromo && manualDiscount > 0 && (
+                      <div className="flex items-center justify-between text-emerald-700 font-medium text-xs">
+                        <span>ส่วนลดจากโค้ด ({appliedPromo.code}):</span>
+                        <span className="font-bold font-mono">
+                          -฿{manualDiscount.toLocaleString("th-TH")}
+                        </span>
+                      </div>
+                    )}
 
                     <div className="pt-2 border-t border-divider flex items-center justify-between">
                       <span className="text-sm font-bold text-text">ยอดรวมสุทธิ:</span>

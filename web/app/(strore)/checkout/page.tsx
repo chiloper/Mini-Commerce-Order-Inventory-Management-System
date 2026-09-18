@@ -37,11 +37,65 @@ export default function CheckoutPage() {
   const [promoCode, setPromoCode] = useState("");
   const [promoMsg, setPromoMsg] = useState("");
   const [promoOk, setPromoOk] = useState(false);
+  const [promoType, setPromoType] = useState("");
   const [discount, setDiscount] = useState(0);
+  const [validatingPromo, setValidatingPromo] = useState(false);
 
   // Success state
   const [orderSuccess, setOrderSuccess] = useState<Order | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const applyPromoCode = async (codeToUse: string, cartSubtotal: number) => {
+    const code = codeToUse.trim().toUpperCase();
+    if (!code) {
+      setPromoMsg("กรุณากรอกโค้ดส่วนลด");
+      setPromoOk(false);
+      setDiscount(0);
+      setPromoType("");
+      return;
+    }
+
+    setValidatingPromo(true);
+    setPromoMsg("");
+
+    try {
+      const res = await validatePromotion(code, cartSubtotal);
+      if (res.ok && res.data && res.data.valid !== false) {
+        const disc = res.data.discountAmount ?? res.data.discount ?? 0;
+        const type = res.data.type || res.data.promotion?.type || "";
+        const desc =
+          res.data.description ||
+          (type === "percentage"
+            ? `ส่วนลด ${res.data.value}%`
+            : type === "freeship"
+            ? "ส่งฟรี (฿50)"
+            : `ส่วนลด ฿${disc.toLocaleString("th-TH")}`);
+        setPromoOk(true);
+        setPromoCode(code);
+        setPromoType(type);
+        setDiscount(disc);
+        setPromoMsg(`ใช้โค้ด ${code} แล้ว — ${desc}`);
+        if (typeof window !== "undefined") {
+          sessionStorage.setItem("cart_promo_code", code);
+        }
+      } else {
+        setPromoOk(false);
+        setDiscount(0);
+        setPromoType("");
+        if (typeof window !== "undefined") {
+          sessionStorage.removeItem("cart_promo_code");
+        }
+        setPromoMsg(res.data?.message || res.error || `โค้ด "${code}" ไม่ถูกต้องหรือหมดอายุแล้ว`);
+      }
+    } catch {
+      setPromoOk(false);
+      setDiscount(0);
+      setPromoType("");
+      setPromoMsg("เกิดข้อผิดพลาดในการตรวจสอบโค้ด กรุณาลองใหม่อีกครั้ง");
+    } finally {
+      setValidatingPromo(false);
+    }
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -54,6 +108,19 @@ export default function CheckoutPage() {
     if (currentUser?.email) {
       setCustomerName(currentUser.email.split("@")[0]);
     }
+
+    // Auto-apply promo from URL query or session storage
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlPromo = urlParams.get("promo");
+      const sessionPromo = sessionStorage.getItem("cart_promo_code");
+      const promoToApply = urlPromo || sessionPromo;
+      if (promoToApply && (currentCart?.subtotal || 0) > 0) {
+        setPromoCode(promoToApply);
+        applyPromoCode(promoToApply, currentCart.subtotal);
+      }
+    }
+
     setLoading(false);
   };
 
@@ -90,23 +157,17 @@ export default function CheckoutPage() {
   };
 
   const handleApplyPromo = async () => {
-    const code = promoCode.trim().toUpperCase();
-    if (!code) {
-      setPromoMsg("กรุณากรอกโค้ดโปรโมชั่น");
-      setPromoOk(false);
-      setDiscount(0);
-      return;
-    }
+    await applyPromoCode(promoCode, cart.subtotal || 0);
+  };
 
-    const res = await validatePromotion(code, cart.subtotal || 0);
-    if (res.ok && res.data?.valid) {
-      setPromoOk(true);
-      setDiscount(res.data.discount || 0);
-      setPromoMsg(`ใช้โค้ด ${code} แล้ว — ${res.data.description || "รับส่วนลดพิเศษ"}`);
-    } else {
-      setPromoOk(false);
-      setDiscount(0);
-      setPromoMsg(res.data?.message || `โค้ด ${code} ใช้ไม่ได้หรือหมดโควตาแล้ว`);
+  const handleRemovePromo = () => {
+    setPromoOk(false);
+    setDiscount(0);
+    setPromoCode("");
+    setPromoType("");
+    setPromoMsg("");
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem("cart_promo_code");
     }
   };
 
@@ -136,7 +197,12 @@ export default function CheckoutPage() {
 
   const items = cart.items || [];
   const subtotal = cart.subtotal || 0;
-  const shipping = items.length === 0 ? 0 : promoCode.toUpperCase() === "FREESHIP" || subtotal - discount >= 1500 ? 0 : 50;
+  const isFreeShip =
+    (promoOk &&
+      (promoCode.trim().toUpperCase() === "FREESHIP" ||
+        promoType.toLowerCase() === "freeship")) ||
+    subtotal >= 1500;
+  const shipping = items.length === 0 ? 0 : isFreeShip ? 0 : 50;
   const total = Math.max(0, subtotal - discount + shipping);
 
   if (loading) {
@@ -523,31 +589,69 @@ export default function CheckoutPage() {
             </h3>
 
             {/* Promo code */}
-            <div>
-              <div className="flex gap-2">
-                <input
-                  className="flex-1 px-3 py-2 text-xs rounded-xl border border-divider bg-bg outline-none focus:border-accent uppercase text-text placeholder:text-neutral-600 font-medium"
-                  placeholder="โค้ดส่วนลด (เช่น SAVE10)"
-                  value={promoCode}
-                  onChange={(e) => setPromoCode(e.target.value)}
-                />
+            {promoOk ? (
+              <div className="flex items-center justify-between p-2.5 rounded-xl bg-emerald-50 border border-emerald-200">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center text-xs font-bold shrink-0">
+                    ✓
+                  </span>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-mono font-bold text-xs text-emerald-900">
+                        {promoCode}
+                      </span>
+                      <span className="text-[11px] text-emerald-700 truncate font-medium">
+                        {promoType === "freeship" ? "ส่งฟรี" : `ลด ฿${discount.toLocaleString()}`}
+                      </span>
+                    </div>
+                  </div>
+                </div>
                 <button
                   type="button"
-                  onClick={handleApplyPromo}
-                  className="px-3.5 py-2 text-xs font-bold rounded-xl border border-divider bg-surface hover:bg-bg cursor-pointer whitespace-nowrap transition-colors text-text"
+                  onClick={handleRemovePromo}
+                  className="px-2.5 py-1 text-xs font-bold text-rose-700 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer shrink-0"
+                  title="ยกเลิกโค้ด"
                 >
-                  ใช้โค้ด
+                  ✕ ลบ
                 </button>
               </div>
+            ) : (
+              <div>
+                <div className="flex gap-2">
+                  <input
+                    className="flex-1 px-3 py-2 text-xs rounded-xl border border-divider bg-bg outline-none focus:border-accent uppercase text-text placeholder:text-neutral-600 font-medium disabled:opacity-60"
+                    placeholder="โค้ดส่วนลด (เช่น SAVE10)"
+                    value={promoCode}
+                    onChange={(e) => setPromoCode(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleApplyPromo();
+                      }
+                    }}
+                    disabled={validatingPromo}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleApplyPromo}
+                    disabled={validatingPromo || !promoCode.trim()}
+                    className="px-3.5 py-2 text-xs font-bold rounded-xl border border-divider bg-surface hover:bg-bg cursor-pointer whitespace-nowrap transition-colors text-text disabled:opacity-50"
+                  >
+                    {validatingPromo ? "กำลังตรวจ..." : "ใช้โค้ด"}
+                  </button>
+                </div>
 
-              {promoMsg && (
-                <p className={`text-xs mt-1.5 m-0 font-semibold ${
-                  promoOk ? "text-emerald-800" : "text-rose-700"
-                }`}>
-                  {promoMsg}
-                </p>
-              )}
-            </div>
+                {promoMsg && (
+                  <p
+                    className={`text-xs mt-1.5 m-0 font-semibold ${
+                      promoOk ? "text-emerald-800" : "text-rose-700"
+                    }`}
+                  >
+                    {promoMsg}
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Price breakdown */}
             <div className="flex flex-col gap-2 text-xs pt-2 border-t border-divider">

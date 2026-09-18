@@ -112,7 +112,11 @@ export interface UpdatePromotionInput {
 }
 
 export interface ValidatePromotionResult {
-  valid: boolean;
+  id?: number;
+  code?: string;
+  type?: string;
+  value?: number;
+  valid?: boolean;
   promotion?: Promotion;
   discountAmount?: number;
   discount?: number;
@@ -194,6 +198,7 @@ export interface CreateManualOrderInput {
   statusText?: string;
   shippingFee?: number;
   discountAmount?: number;
+  promotionCode?: string;
   channel?: string;
   note?: string;
   items: ManualOrderItemInput[];

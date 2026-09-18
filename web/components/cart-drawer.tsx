@@ -15,23 +15,60 @@ interface CartDrawerProps {
   onClose: () => void;
 }
 
+interface AppliedPromo {
+  id?: number;
+  code: string;
+  type?: string;
+  value?: number;
+  discountAmount: number;
+  description: string;
+}
+
 export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
   const [cart, setCart] = useState<Cart>({ items: [], totalQuantity: 0, subtotal: 0 });
   const [loading, setLoading] = useState(false);
   const [promoCode, setPromoCode] = useState("");
   const [promoMsg, setPromoMsg] = useState("");
   const [promoOk, setPromoOk] = useState(false);
+  const [appliedPromo, setAppliedPromo] = useState<AppliedPromo | null>(null);
+  const [validatingPromo, setValidatingPromo] = useState(false);
   const [discount, setDiscount] = useState(0);
+
+  const calculateDiscount = (promo: AppliedPromo, currentSubtotal: number) => {
+    const promoType = (promo.type || "").toLowerCase();
+    if (promoType === "percentage") {
+      return Math.round((currentSubtotal * (promo.value || 0)) / 100);
+    }
+    if (promoType === "fixed") {
+      return Math.min(currentSubtotal, promo.value || 0);
+    }
+    if (promoType === "freeship") {
+      return 50;
+    }
+    return promo.discountAmount || 0;
+  };
 
   const fetchCart = async () => {
     const c = await getCart();
     setCart(c);
+    if (appliedPromo) {
+      const newSub = c?.subtotal || 0;
+      setDiscount(calculateDiscount(appliedPromo, newSub));
+    }
   };
 
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = "hidden";
       fetchCart();
+      // Restore promo code from session if available
+      if (typeof window !== "undefined" && !appliedPromo) {
+        const savedCode = sessionStorage.getItem("cart_promo_code");
+        if (savedCode) {
+          setPromoCode(savedCode);
+          handleApplyPromo(savedCode);
+        }
+      }
     } else {
       document.body.style.overflow = "";
     }
@@ -46,7 +83,7 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
     };
     window.addEventListener("cart-updated", handleUpdate);
     return () => window.removeEventListener("cart-updated", handleUpdate);
-  }, []);
+  }, [appliedPromo]);
 
   const handleUpdateQty = async (itemId: number, currentQty: number, delta: number) => {
     const nextQty = currentQty + delta;
@@ -56,29 +93,79 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
     } else {
       await updateCartItem(itemId, nextQty);
     }
-    await fetchCart();
+    const c = await getCart();
+    setCart(c);
+    if (appliedPromo) {
+      setDiscount(calculateDiscount(appliedPromo, c?.subtotal || 0));
+    }
     window.dispatchEvent(new Event("cart-updated"));
     setLoading(false);
   };
 
-  const handleApplyPromo = async () => {
-    const code = promoCode.trim().toUpperCase();
+  const handleApplyPromo = async (codeToUse?: string) => {
+    const code = (codeToUse || promoCode).trim().toUpperCase();
     if (!code) {
-      setPromoMsg("กรุณากรอกโค้ดโปรโมชั่น");
+      setPromoMsg("กรุณากรอกโค้ดส่วนลด");
       setPromoOk(false);
       setDiscount(0);
       return;
     }
 
-    const res = await validatePromotion(code, cart.subtotal || 0);
-    if (res.ok && res.data?.valid) {
-      setPromoOk(true);
-      setDiscount(res.data.discountAmount || 0);
-      setPromoMsg(`ใช้โค้ด ${code} แล้ว — ${res.data.promotion?.type === "percentage" ? `ลด ${res.data.promotion.value}%` : `ลด ฿${res.data.promotion?.value}`}`);
-    } else {
+    setValidatingPromo(true);
+    setPromoMsg("");
+
+    try {
+      const res = await validatePromotion(code, cart.subtotal || 0);
+      if (res.ok && res.data && res.data.valid !== false) {
+        const disc = res.data.discountAmount ?? res.data.discount ?? 0;
+        const promoObj: AppliedPromo = {
+          id: res.data.id || res.data.promotion?.id,
+          code: res.data.code || res.data.promotion?.code || code,
+          type: res.data.type || res.data.promotion?.type || "",
+          value: res.data.value || res.data.promotion?.value || 0,
+          discountAmount: disc,
+          description:
+            res.data.description ||
+            (res.data.type === "percentage"
+              ? `ส่วนลด ${res.data.value}%`
+              : res.data.type === "freeship"
+              ? "ส่งฟรี (฿50)"
+              : `ส่วนลด ฿${disc.toLocaleString("th-TH")}`),
+        };
+        setPromoOk(true);
+        setDiscount(disc);
+        setAppliedPromo(promoObj);
+        setPromoMsg(`ใช้โค้ด ${code} แล้ว — ${promoObj.description}`);
+        if (typeof window !== "undefined") {
+          sessionStorage.setItem("cart_promo_code", code);
+        }
+      } else {
+        setPromoOk(false);
+        setDiscount(0);
+        setAppliedPromo(null);
+        if (typeof window !== "undefined") {
+          sessionStorage.removeItem("cart_promo_code");
+        }
+        setPromoMsg(res.data?.message || res.error || `โค้ด "${code}" ไม่ถูกต้องหรือหมดอายุแล้ว`);
+      }
+    } catch {
       setPromoOk(false);
       setDiscount(0);
-      setPromoMsg(res.data?.message || res.error || `โค้ด ${code} ใช้ไม่ได้หรือหมดโควตาแล้ว`);
+      setAppliedPromo(null);
+      setPromoMsg("เกิดข้อผิดพลาดในการตรวจสอบโค้ด กรุณาลองใหม่อีกครั้ง");
+    } finally {
+      setValidatingPromo(false);
+    }
+  };
+
+  const handleRemovePromo = () => {
+    setAppliedPromo(null);
+    setPromoOk(false);
+    setDiscount(0);
+    setPromoCode("");
+    setPromoMsg("");
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem("cart_promo_code");
     }
   };
 
@@ -91,7 +178,12 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
   const freeShippingThreshold = 1500;
   const amountToFreeShipping = Math.max(0, freeShippingThreshold - subtotal);
   const freeShippingProgress = Math.min(100, Math.round((subtotal / freeShippingThreshold) * 100));
-  const shipping = items.length === 0 ? 0 : promoCode.toUpperCase() === "FREESHIP" || subtotal - discount >= 1500 ? 0 : 50;
+  const isFreeShip =
+    (appliedPromo &&
+      (appliedPromo.code.toUpperCase() === "FREESHIP" ||
+        (appliedPromo.type || "").toLowerCase() === "freeship")) ||
+    subtotal >= freeShippingThreshold;
+  const shipping = items.length === 0 ? 0 : isFreeShip ? 0 : 50;
   const total = Math.max(0, subtotal - discount + shipping);
 
   return (
@@ -290,34 +382,70 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
         {/* Footer (Fitts's Law: Prominent Checkout CTA) */}
         {items.length > 0 && (
           <div className="p-5 flex flex-col gap-3.5 bg-surface border-t border-divider shadow-lg">
-            {/* Promo Code Input */}
-            <div>
-              <div className="flex gap-2">
-                <input
-                  placeholder="โค้ดส่วนลด (เช่น SAVE10, FREESHIP)"
-                  value={promoCode}
-                  onChange={(e) => setPromoCode(e.target.value)}
-                  className="flex-1 px-3 py-2 text-xs rounded-xl border border-divider bg-bg outline-none focus:border-accent uppercase text-text placeholder:text-neutral-600 font-medium"
-                />
+            {/* Promo Code Section */}
+            {appliedPromo ? (
+              <div className="flex items-center justify-between p-2.5 rounded-xl bg-emerald-50 border border-emerald-200">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center text-xs font-bold shrink-0">
+                    ✓
+                  </span>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-mono font-bold text-xs text-emerald-900">
+                        {appliedPromo.code}
+                      </span>
+                      <span className="text-[11px] text-emerald-700 truncate font-medium">
+                        {appliedPromo.description}
+                      </span>
+                    </div>
+                  </div>
+                </div>
                 <button
                   type="button"
-                  onClick={handleApplyPromo}
-                  className="px-3.5 py-2 text-xs font-bold rounded-xl border border-divider bg-surface hover:bg-bg cursor-pointer whitespace-nowrap transition-colors text-text"
+                  onClick={handleRemovePromo}
+                  className="px-2.5 py-1 text-xs font-bold text-rose-700 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer shrink-0"
+                  title="ยกเลิกโค้ด"
                 >
-                  ใช้โค้ด
+                  ✕ ลบ
                 </button>
               </div>
+            ) : (
+              <div>
+                <div className="flex gap-2">
+                  <input
+                    placeholder="โค้ดส่วนลด (เช่น SAVE10, FREESHIP)"
+                    value={promoCode}
+                    onChange={(e) => setPromoCode(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleApplyPromo();
+                      }
+                    }}
+                    disabled={validatingPromo}
+                    className="flex-1 px-3 py-2 text-xs rounded-xl border border-divider bg-bg outline-none focus:border-accent uppercase text-text placeholder:text-neutral-600 font-medium disabled:opacity-60"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleApplyPromo()}
+                    disabled={validatingPromo || !promoCode.trim()}
+                    className="px-3.5 py-2 text-xs font-bold rounded-xl border border-divider bg-surface hover:bg-bg cursor-pointer whitespace-nowrap transition-colors text-text disabled:opacity-50"
+                  >
+                    {validatingPromo ? "กำลังตรวจ..." : "ใช้โค้ด"}
+                  </button>
+                </div>
 
-              {promoMsg && (
-                <p
-                  className={`text-xs mt-1.5 m-0 font-semibold ${
-                    promoOk ? "text-emerald-800" : "text-rose-700"
-                  }`}
-                >
-                  {promoMsg}
-                </p>
-              )}
-            </div>
+                {promoMsg && (
+                  <p
+                    className={`text-xs mt-1.5 m-0 font-semibold ${
+                      promoOk ? "text-emerald-800" : "text-rose-700"
+                    }`}
+                  >
+                    {promoMsg}
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Price Summary */}
             <div className="flex flex-col gap-2 text-xs pt-3 border-t border-divider">
@@ -351,7 +479,7 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
 
             {/* Checkout Button */}
             <Link
-              href="/checkout"
+              href={appliedPromo ? `/checkout?promo=${encodeURIComponent(appliedPromo.code)}` : "/checkout"}
               onClick={onClose}
               className="w-full min-h-[46px] flex items-center justify-center gap-2 rounded-xl text-sm font-bold bg-accent !text-white hover:bg-accent-600 active:bg-accent-700 transition-all cursor-pointer shadow-xs text-center active:scale-[0.99]"
             >

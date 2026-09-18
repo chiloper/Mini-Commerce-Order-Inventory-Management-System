@@ -29,6 +29,9 @@ export interface ValidatePromotionResult {
   value: number;
   discountAmount: number;
   description: string;
+  valid?: boolean;
+  discount?: number;
+  promotion?: Promotion;
 }
 
 export interface MetricCard {
