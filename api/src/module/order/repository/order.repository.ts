@@ -1,10 +1,12 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../../../prisma/prisma.service";
-import { CreatePromotionDto, UpdatePromotionDto } from "../dto/order.dto";
-import { Prisma } from "../../../generated/prisma/client";
+import { CreatePromotionDto, QueryOrderDto, QueryPromotionDto, UpdatePromotionDto } from "../dto/order.dto";
+import { Prisma, Promotion } from "../../../generated/prisma/client";
 import {
   DashboardStatsResult,
   DiscountBreakdownData,
+  OrderWithRelations,
+  PaginatedResult,
   StockLogEntry,
 } from "../types/order.types";
 
@@ -38,6 +40,35 @@ export class OrderRepository {
     return await this.prisma.promotion.findMany({
       orderBy: { id: "desc" },
     });
+  }
+
+  async findPromotionsPaginated(
+    query?: QueryPromotionDto
+  ): Promise<PaginatedResult<Promotion>> {
+    const page = Math.max(1, Number(query?.page) || 1);
+    const limit = Math.max(1, Number(query?.limit) || 10);
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.PromotionWhereInput = {};
+    if (query?.search && query.search.trim()) {
+      where.code = { contains: query.search.trim().toUpperCase() };
+    }
+
+    const total = await this.prisma.promotion.count({ where });
+    const data = await this.prisma.promotion.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy: { id: "desc" },
+    });
+
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit) || 1,
+    };
   }
 
   async createPromotion(dto: CreatePromotionDto) {
@@ -118,6 +149,112 @@ export class OrderRepository {
       },
       orderBy: { id: "desc" },
     });
+  }
+
+  async findOrdersPaginated(
+    userId?: number,
+    role?: string,
+    query?: QueryOrderDto
+  ): Promise<PaginatedResult<OrderWithRelations>> {
+    const page = Math.max(1, Number(query?.page) || 1);
+    const limit = Math.max(1, Number(query?.limit) || 10);
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.OrderWhereInput = {};
+
+    if (role !== "admin" && userId) {
+      where.userId = userId;
+    }
+
+    const andConditions: Prisma.OrderWhereInput[] = [];
+
+    // Search filter
+    if (query?.search && query.search.trim()) {
+      const s = query.search.trim();
+      const num = Number(s.replace("#", ""));
+      const searchOr: Prisma.OrderWhereInput[] = [
+        { user: { email: { contains: s } } },
+        {
+          discountBreakdown: {
+            path: "$.customerName",
+            string_contains: s,
+          },
+        },
+        {
+          discountBreakdown: {
+            path: "$.channel",
+            string_contains: s,
+          },
+        },
+        {
+          discountBreakdown: {
+            path: "$.phone",
+            string_contains: s,
+          },
+        },
+      ];
+      if (!isNaN(num) && num > 0) {
+        searchOr.push({ id: num });
+      }
+      andConditions.push({ OR: searchOr });
+    }
+
+    // Status filter
+    if (query?.status && query.status !== "all") {
+      const st = query.status.toLowerCase();
+      if (st === "wait" || st === "pending") {
+        andConditions.push({
+          OR: [
+            { discountBreakdown: { path: "$.statusText", string_contains: "wait" } },
+            { discountBreakdown: { path: "$.statusText", string_contains: "pending" } },
+          ],
+        });
+      } else if (st === "paid" || st === "processing") {
+        andConditions.push({
+          OR: [
+            { discountBreakdown: { path: "$.statusText", string_contains: "paid" } },
+            { discountBreakdown: { path: "$.statusText", string_contains: "processing" } },
+          ],
+        });
+      } else if (st === "shipped") {
+        andConditions.push({
+          discountBreakdown: { path: "$.statusText", string_contains: "shipped" },
+        });
+      } else if (st === "cancelled") {
+        andConditions.push({
+          discountBreakdown: { path: "$.statusText", string_contains: "cancelled" },
+        });
+      }
+    }
+
+    if (andConditions.length > 0) {
+      where.AND = andConditions;
+    }
+
+    const total = await this.prisma.order.count({ where });
+    const data = await this.prisma.order.findMany({
+      where,
+      skip,
+      take: limit,
+      include: {
+        user: { select: { id: true, email: true } },
+        promotion: true,
+        orderItems: {
+          include: {
+            product: true,
+          },
+        },
+      },
+      orderBy: { id: "desc" },
+    });
+
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit) || 1,
+    };
   }
 
   async updateOrderStatus(id: number, statusText: string) {

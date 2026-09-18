@@ -3,8 +3,10 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import AdminSidebar from "../../../components/admin-sidebar";
+import AdminPagination from "../../../components/admin-pagination";
 import {
   getProducts,
+  getPaginatedProducts,
   getCategories,
   createProductAction,
   updateProductAction,
@@ -46,6 +48,10 @@ export default function AdminInventoryPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "low" | "out">("all");
   const [search, setSearch] = useState<string>("");
+  const [page, setPage] = useState<number>(1);
+  const [limit] = useState<number>(10);
+  const [total, setTotal] = useState<number>(0);
+  const [totalPages, setTotalPages] = useState<number>(1);
 
   // Create Product Modal state
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -111,13 +117,30 @@ export default function AdminInventoryPage() {
     e.target.value = "";
   };
 
-  const loadData = async () => {
+  const loadData = async (
+    targetPage = page,
+    targetFilter = filter,
+    targetSearch = search
+  ) => {
     setLoading(true);
-    const [prods, cats] = await Promise.all([getProducts(), getCategories()]);
-    setProducts(prods);
-    setCategories(cats);
-    if (cats.length > 0 && !createCatId) {
-      setCreateCatId(cats[0].id);
+    const [paginated, cats] = await Promise.all([
+      getPaginatedProducts({
+        page: targetPage,
+        limit,
+        search: targetSearch,
+        stockFilter: targetFilter,
+      }),
+      categories.length === 0 ? getCategories() : Promise.resolve(categories),
+    ]);
+    setProducts(paginated.data);
+    setPage(paginated.page);
+    setTotal(paginated.total);
+    setTotalPages(paginated.totalPages);
+    if (categories.length === 0 && cats) {
+      setCategories(cats);
+      if (cats.length > 0 && !createCatId) {
+        setCreateCatId(cats[0].id);
+      }
     }
     setLoading(false);
   };
@@ -128,9 +151,31 @@ export default function AdminInventoryPage() {
         router.push("/admin/console");
         return;
       }
-      loadData();
+      loadData(1, filter, search);
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
+
+  const handleFilterChange = (newFilter: "all" | "low" | "out") => {
+    setFilter(newFilter);
+    setPage(1);
+    loadData(1, newFilter, search);
+  };
+
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage);
+    loadData(newPage, filter, search);
+  };
+
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setPage(1);
+      loadData(1, filter, search);
+    }, 300);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
 
   const formatPrice = (n: number) => `฿${(n || 0).toLocaleString("th-TH")}`;
 
@@ -169,23 +214,7 @@ export default function AdminInventoryPage() {
   };
 
   const decorated = products.map(decorate);
-
-  const lowCount = decorated.filter((p) => p.isLow).length;
-  const outCount = decorated.filter((p) => p.isOut).length;
-
-  const filtered = decorated.filter((p) => {
-    const matchSearch =
-      search.trim() === "" ||
-      p.name.toLowerCase().includes(search.toLowerCase()) ||
-      p.sku.toLowerCase().includes(search.toLowerCase()) ||
-      (p.catagory?.name || p.category?.name || "").toLowerCase().includes(search.toLowerCase());
-
-    if (!matchSearch) return false;
-
-    if (filter === "low") return p.isLow;
-    if (filter === "out") return p.isOut;
-    return true;
-  });
+  const filtered = decorated;
 
   // Handle Create Product
   const handleOpenCreate = () => {
@@ -225,7 +254,7 @@ export default function AdminInventoryPage() {
 
     if (res.ok) {
       setShowCreateModal(false);
-      await loadData();
+      await loadData(1, filter, search);
     } else {
       setCreateError(res.error || "เกิดข้อผิดพลาดในการเพิ่มสินค้า");
     }
@@ -270,7 +299,7 @@ export default function AdminInventoryPage() {
 
     if (res.ok) {
       setEditProduct(null);
-      await loadData();
+      await loadData(page, filter, search);
     } else {
       setEditError(res.error || "เกิดข้อผิดพลาดในการแก้ไขสินค้า");
     }
@@ -286,7 +315,7 @@ export default function AdminInventoryPage() {
     const res = await deleteProductAction(editProduct.id);
     if (res.ok) {
       setEditProduct(null);
-      await loadData();
+      await loadData(page, filter, search);
     } else {
       setEditError(res.error || "ไม่สามารถลบสินค้าได้");
     }
@@ -307,7 +336,7 @@ export default function AdminInventoryPage() {
 
     setRefilling(true);
     await updateProductAction(refillProduct.id, { stock: newTotalStock });
-    await loadData();
+    await loadData(page, filter, search);
     setRefillProduct(null);
     setRefilling(false);
   };
@@ -322,7 +351,7 @@ export default function AdminInventoryPage() {
           <div className="flex items-end justify-between gap-4 flex-wrap">
             <div>
               <p className="text-xs font-mono uppercase tracking-wider text-accent-700 font-bold mb-1">
-                {products.length} SKU · จุดสั่งซื้อ 10 ชิ้น
+                ทั้งหมด {total.toLocaleString("th-TH")} รายการ {totalPages > 1 && `(หน้า ${page}/${totalPages})`} · จุดสั่งซื้อ 10 ชิ้น
               </p>
               <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-text m-0">
                 สินค้า & สต็อก
@@ -351,9 +380,9 @@ export default function AdminInventoryPage() {
                       ? "bg-accent text-white shadow-xs"
                       : "text-neutral-700 hover:text-text hover:bg-bg"
                   }`}
-                  onClick={() => setFilter("all")}
+                  onClick={() => handleFilterChange("all")}
                 >
-                  ทุกสถานะ ({decorated.length})
+                  ทุกสถานะ
                 </button>
                 <button
                   type="button"
@@ -362,9 +391,9 @@ export default function AdminInventoryPage() {
                       ? "bg-accent text-white shadow-xs"
                       : "text-neutral-700 hover:text-text hover:bg-bg"
                   }`}
-                  onClick={() => setFilter("low")}
+                  onClick={() => handleFilterChange("low")}
                 >
-                  ใกล้หมด ({lowCount})
+                  ใกล้หมด
                 </button>
                 <button
                   type="button"
@@ -373,9 +402,9 @@ export default function AdminInventoryPage() {
                       ? "bg-accent text-white shadow-xs"
                       : "text-neutral-700 hover:text-text hover:bg-bg"
                   }`}
-                  onClick={() => setFilter("out")}
+                  onClick={() => handleFilterChange("out")}
                 >
-                  หมดชั่วคราว ({outCount})
+                  หมดชั่วคราว
                 </button>
               </div>
 
@@ -513,6 +542,16 @@ export default function AdminInventoryPage() {
                   )}
                 </tbody>
               </table>
+              <div className="p-4 border-t border-divider">
+                <AdminPagination
+                  page={page}
+                  totalPages={totalPages}
+                  total={total}
+                  limit={limit}
+                  onPageChange={handlePageChange}
+                  loading={loading}
+                />
+              </div>
             </div>
           )}
         </main>

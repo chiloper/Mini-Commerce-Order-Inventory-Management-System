@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import AdminSidebar from "../../../components/admin-sidebar";
-import { getDashboardStats } from "../../../lib/ecommerce-actions";
+import AdminPagination from "../../../components/admin-pagination";
+import { getDashboardStats, getPaginatedOrders } from "../../../lib/ecommerce-actions";
 import { getSessionUserAction } from "../../../lib/auth/actions";
 import type { DashboardStats, Order, Product, MetricCard, StockMovementLog } from "@/types/ecommerce";
 
@@ -12,6 +13,24 @@ export default function AdminDashboardPage() {
   const router = useRouter();
   const [data, setData] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Recent Orders Pagination state
+  const [recentOrders, setRecentOrders] = useState<Order[]>([]);
+  const [recentOrdersPage, setRecentOrdersPage] = useState<number>(1);
+  const [recentOrdersTotal, setRecentOrdersTotal] = useState<number>(0);
+  const [recentOrdersTotalPages, setRecentOrdersTotalPages] = useState<number>(1);
+  const [recentOrdersLoading, setRecentOrdersLoading] = useState<boolean>(false);
+  const RECENT_ORDERS_LIMIT = 5;
+
+  const fetchRecentOrders = async (targetPage: number) => {
+    setRecentOrdersLoading(true);
+    const res = await getPaginatedOrders({ page: targetPage, limit: RECENT_ORDERS_LIMIT });
+    setRecentOrders(res.data);
+    setRecentOrdersPage(res.page);
+    setRecentOrdersTotal(res.total);
+    setRecentOrdersTotalPages(res.totalPages);
+    setRecentOrdersLoading(false);
+  };
 
   useEffect(() => {
     getSessionUserAction().then((u) => {
@@ -23,6 +42,7 @@ export default function AdminDashboardPage() {
         setData(res);
         setLoading(false);
       });
+      fetchRecentOrders(1);
     });
   }, [router]);
 
@@ -63,8 +83,6 @@ export default function AdminDashboardPage() {
       stockText: stock === 0 ? "รอเข้าคลัง" : `เหลือ ${stock} ชิ้น`,
     };
   });
-
-  const recentOrders: Order[] = data?.recentOrders || [];
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-6 sm:pt-8 pb-12 sm:pb-16">
@@ -280,6 +298,16 @@ export default function AdminDashboardPage() {
                 )}
               </tbody>
             </table>
+
+            {/* Pagination Controls */}
+            <AdminPagination
+              page={recentOrdersPage}
+              totalPages={recentOrdersTotalPages}
+              total={recentOrdersTotal}
+              limit={RECENT_ORDERS_LIMIT}
+              onPageChange={(p) => fetchRecentOrders(p)}
+              loading={recentOrdersLoading}
+            />
           </div>
         </main>
       </div>

@@ -3,8 +3,10 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import AdminSidebar from "../../../components/admin-sidebar";
+import AdminPagination from "../../../components/admin-pagination";
 import {
   getPromotions,
+  getPaginatedPromotions,
   createPromotionAction,
   updatePromotionAction,
   deletePromotionAction,
@@ -27,6 +29,11 @@ export default function AdminPromotionPage() {
   const router = useRouter();
   const [promos, setPromos] = useState<Promotion[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState<number>(1);
+  const [limit] = useState<number>(10);
+  const [total, setTotal] = useState<number>(0);
+  const [totalPages, setTotalPages] = useState<number>(1);
+  const [search, setSearch] = useState<string>("");
 
   // Modal create
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -49,10 +56,17 @@ export default function AdminPromotionPage() {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  const loadData = async () => {
+  const loadData = async (targetPage = page, targetSearch = search) => {
     setLoading(true);
-    const data = await getPromotions();
-    setPromos(data);
+    const res = await getPaginatedPromotions({
+      page: targetPage,
+      limit,
+      search: targetSearch,
+    });
+    setPromos(res.data);
+    setPage(res.page);
+    setTotal(res.total);
+    setTotalPages(res.totalPages);
     setLoading(false);
   };
 
@@ -62,9 +76,25 @@ export default function AdminPromotionPage() {
         router.push("/admin/console");
         return;
       }
-      loadData();
+      loadData(1, search);
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
+
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage);
+    loadData(newPage, search);
+  };
+
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setPage(1);
+      loadData(1, search);
+    }, 300);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
 
   const decorate = (c: Promotion): DecoratedPromotion => {
     const used = c.usedCount || 0;
@@ -141,7 +171,7 @@ export default function AdminPromotionPage() {
 
     if (res.ok) {
       setShowCreateModal(false);
-      await loadData();
+      await loadData(1, search);
     } else {
       setCreateError(res.error || "เกิดข้อผิดพลาดในการสร้างโปรโมชั่น");
     }
@@ -174,7 +204,7 @@ export default function AdminPromotionPage() {
 
     if (res.ok) {
       setEditPromo(null);
-      await loadData();
+      await loadData(page, search);
     } else {
       setEditError(res.error || "เกิดข้อผิดพลาดในการแก้ไขโปรโมชั่น");
     }
@@ -190,7 +220,7 @@ export default function AdminPromotionPage() {
     const res = await deletePromotionAction(editPromo.id);
     if (res.ok) {
       setEditPromo(null);
-      await loadData();
+      await loadData(page, search);
     } else {
       setEditError(res.error || "ไม่สามารถลบโปรโมชั่นได้");
     }
@@ -207,16 +237,38 @@ export default function AdminPromotionPage() {
           <div className="flex items-end justify-between gap-4 flex-wrap">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wider text-accent-700 mb-1">
-                {promos.length} แคมเปญ
+                ทั้งหมด {total.toLocaleString("th-TH")} แคมเปญ {totalPages > 1 && `(หน้า ${page}/${totalPages})`}
               </p>
               <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-text m-0">
                 โปรโมชั่น
               </h2>
             </div>
-            <div className="flex gap-2">
+            <div className="flex items-center gap-3 flex-wrap">
+              <label className="flex items-center gap-2 w-full sm:w-64 bg-surface border border-divider rounded-xl px-3.5 py-2 focus-within:ring-2 focus-within:ring-accent focus-within:border-transparent transition-all shadow-2xs">
+                <svg className="w-4 h-4 text-neutral-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="11" cy="11" r="7" />
+                  <line x1="16.5" y1="16.5" x2="21" y2="21" />
+                </svg>
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="ค้นหาโค้ดส่วนลด..."
+                  className="w-full bg-transparent border-0 outline-none text-xs text-text placeholder:text-neutral-500"
+                />
+                {search && (
+                  <button
+                    type="button"
+                    onClick={() => setSearch("")}
+                    className="text-xs text-neutral-500 hover:text-text cursor-pointer p-0.5"
+                    title="ล้างคำค้นหา"
+                  >
+                    ✕
+                  </button>
+                )}
+              </label>
               <button
                 type="button"
-                className="px-4 py-2 text-xs sm:text-sm font-semibold rounded-xl bg-accent text-white hover:bg-accent-600 active:bg-accent-700 transition-all cursor-pointer shadow-xs !text-white flex items-center gap-1.5"
+                className="px-4 py-2 text-xs sm:text-sm font-semibold rounded-xl bg-accent text-white hover:bg-accent-600 active:bg-accent-700 transition-all cursor-pointer shadow-xs !text-white flex items-center gap-1.5 whitespace-nowrap"
                 onClick={handleOpenCreate}
               >
                 <span>+</span>
@@ -288,6 +340,16 @@ export default function AdminPromotionPage() {
                   )}
                 </tbody>
               </table>
+              <div className="p-4 border-t border-divider">
+                <AdminPagination
+                  page={page}
+                  totalPages={totalPages}
+                  total={total}
+                  limit={limit}
+                  onPageChange={handlePageChange}
+                  loading={loading}
+                />
+              </div>
             </div>
           )}
 

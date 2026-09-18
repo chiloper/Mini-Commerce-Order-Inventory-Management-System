@@ -7,12 +7,15 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Query,
 } from "@nestjs/common";
 import { OrderService } from "./order.service";
 import {
   CheckoutDto,
   CreateManualOrderDto,
   CreatePromotionDto,
+  QueryOrderDto,
+  QueryPromotionDto,
   UpdateOrderStatusDto,
   UpdatePromotionDto,
   ValidatePromotionDto,
@@ -50,7 +53,13 @@ export class OrderController {
   }
 
   @Get("orders")
-  findOrders(@CurrentUser() user: AuthenticatedUser): Promise<OrderWithRelations[]> {
+  findOrders(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: QueryOrderDto
+  ): Promise<unknown> {
+    if (query.page !== undefined) {
+      return this.orderService.findOrdersPaginated(user.id, user.role, query);
+    }
     return this.orderService.findOrders(user.id, user.role);
   }
 
@@ -76,7 +85,10 @@ export class OrderController {
 
   @Roles("admin")
   @Get("promotions")
-  getPromotions(): Promise<Promotion[]> {
+  getPromotions(@Query() query: QueryPromotionDto): Promise<unknown> {
+    if (query.page !== undefined) {
+      return this.orderService.getPromotionsPaginated(query);
+    }
     return this.orderService.getPromotions();
   }
 

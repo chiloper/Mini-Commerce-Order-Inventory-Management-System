@@ -97,4 +97,20 @@ export class QueryProductDto {
   @IsBoolean()
   @Type(() => Boolean)
   activeOnly?: boolean;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Type(() => Number)
+  page?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Type(() => Number)
+  limit?: number;
+
+  @IsOptional()
+  @IsString()
+  stockFilter?: "all" | "low" | "out";
 }

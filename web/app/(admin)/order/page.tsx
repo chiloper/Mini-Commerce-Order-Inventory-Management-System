@@ -3,8 +3,10 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import AdminSidebar from "../../../components/admin-sidebar";
+import AdminPagination from "../../../components/admin-pagination";
 import {
   getOrders,
+  getPaginatedOrders,
   updateOrderStatus,
   getProducts,
   createManualOrderAction,
@@ -57,6 +59,10 @@ export default function AdminOrderPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>("all");
   const [search, setSearch] = useState<string>("");
+  const [page, setPage] = useState<number>(1);
+  const [limit] = useState<number>(10);
+  const [total, setTotal] = useState<number>(0);
+  const [totalPages, setTotalPages] = useState<number>(1);
   const [selectedOrder, setSelectedOrder] = useState<DecoratedOrder | null>(null);
   const [updating, setUpdating] = useState(false);
 
@@ -88,10 +94,22 @@ export default function AdminOrderPage() {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
-  const loadOrders = async () => {
+  const loadOrders = async (
+    targetPage = page,
+    targetFilter = filter,
+    targetSearch = search
+  ) => {
     setLoading(true);
-    const data = await getOrders();
-    setOrders(data);
+    const res = await getPaginatedOrders({
+      page: targetPage,
+      limit,
+      status: targetFilter,
+      search: targetSearch,
+    });
+    setOrders(res.data);
+    setPage(res.page);
+    setTotal(res.total);
+    setTotalPages(res.totalPages);
     setLoading(false);
   };
 
@@ -101,9 +119,31 @@ export default function AdminOrderPage() {
         router.push("/admin/console");
         return;
       }
-      loadOrders();
+      loadOrders(1, filter, search);
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
+
+  const handleFilterChange = (newFilter: string) => {
+    setFilter(newFilter);
+    setPage(1);
+    loadOrders(1, newFilter, search);
+  };
+
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage);
+    loadOrders(newPage, filter, search);
+  };
+
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setPage(1);
+      loadOrders(1, filter, search);
+    }, 300);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
 
   const formatPrice = (n: number) => `฿${(n || 0).toLocaleString("th-TH")}`;
 
@@ -200,22 +240,7 @@ export default function AdminOrderPage() {
   };
 
   const decorated = orders.map(decorateOrder);
-
-  const filtered = decorated.filter((o) => {
-    const matchSearch =
-      search.trim() === "" ||
-      String(o.id).includes(search) ||
-      o.customerName?.toLowerCase().includes(search.toLowerCase()) ||
-      o.channel?.toLowerCase().includes(search.toLowerCase());
-
-    if (!matchSearch) return false;
-
-    if (filter === "wait") return o.rawStatus === "wait" || o.rawStatus === "pending";
-    if (filter === "paid") return o.rawStatus === "paid" || o.rawStatus === "processing";
-    if (filter === "shipped") return o.rawStatus === "shipped";
-    if (filter === "cancelled") return o.rawStatus === "cancelled";
-    return true;
-  });
+  const filtered = decorated;
 
   const handleUpdateStatus = async (status: string) => {
     if (!selectedOrder) return;
@@ -225,7 +250,7 @@ export default function AdminOrderPage() {
     }
     setUpdating(true);
     await updateOrderStatus(selectedOrder.id, status);
-    await loadOrders();
+    await loadOrders(page, filter, search);
     setSelectedOrder(null);
     setUpdating(false);
   };
@@ -448,7 +473,7 @@ export default function AdminOrderPage() {
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wider text-accent-700 mb-1">
-                ทั้งหมด {orders.length} รายการ
+                ทั้งหมด {total.toLocaleString("th-TH")} รายการ {totalPages > 1 && `(หน้า ${page}/${totalPages})`}
               </p>
               <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-text m-0">
                 คำสั่งซื้อ
@@ -477,9 +502,9 @@ export default function AdminOrderPage() {
                     ? "bg-accent text-white shadow-xs"
                     : "text-neutral-700 hover:text-neutral-900 hover:bg-bg"
                 }`}
-                onClick={() => setFilter("all")}
+                onClick={() => handleFilterChange("all")}
               >
-                ทั้งหมด ({decorated.length})
+                ทั้งหมด
               </button>
               <button
                 type="button"
@@ -488,9 +513,9 @@ export default function AdminOrderPage() {
                     ? "bg-accent text-white shadow-xs"
                     : "text-neutral-700 hover:text-neutral-900 hover:bg-bg"
                 }`}
-                onClick={() => setFilter("wait")}
+                onClick={() => handleFilterChange("wait")}
               >
-                รอชำระ ({decorated.filter((x) => x.rawStatus === "wait" || x.rawStatus === "pending").length})
+                รอชำระ
               </button>
               <button
                 type="button"
@@ -499,9 +524,9 @@ export default function AdminOrderPage() {
                     ? "bg-accent text-white shadow-xs"
                     : "text-neutral-700 hover:text-neutral-900 hover:bg-bg"
                 }`}
-                onClick={() => setFilter("paid")}
+                onClick={() => handleFilterChange("paid")}
               >
-                กำลังจัดของ ({decorated.filter((x) => x.rawStatus === "paid" || x.rawStatus === "processing").length})
+                กำลังจัดของ
               </button>
               <button
                 type="button"
@@ -510,9 +535,9 @@ export default function AdminOrderPage() {
                     ? "bg-accent text-white shadow-xs"
                     : "text-neutral-700 hover:text-neutral-900 hover:bg-bg"
                 }`}
-                onClick={() => setFilter("shipped")}
+                onClick={() => handleFilterChange("shipped")}
               >
-                จัดส่งแล้ว ({decorated.filter((x) => x.rawStatus === "shipped").length})
+                จัดส่งแล้ว
               </button>
               <button
                 type="button"
@@ -521,9 +546,9 @@ export default function AdminOrderPage() {
                     ? "bg-accent text-white shadow-xs"
                     : "text-neutral-700 hover:text-neutral-900 hover:bg-bg"
                 }`}
-                onClick={() => setFilter("cancelled")}
+                onClick={() => handleFilterChange("cancelled")}
               >
-                ยกเลิก ({decorated.filter((x) => x.rawStatus === "cancelled").length})
+                ยกเลิก
               </button>
             </div>
 
@@ -638,6 +663,16 @@ export default function AdminOrderPage() {
                 )}
               </tbody>
             </table>
+            <div className="p-4 border-t border-divider">
+              <AdminPagination
+                page={page}
+                totalPages={totalPages}
+                total={total}
+                limit={limit}
+                onPageChange={handlePageChange}
+                loading={loading}
+              />
+            </div>
           </div>
 
           {/* Modal: Order Details & Status Update */}

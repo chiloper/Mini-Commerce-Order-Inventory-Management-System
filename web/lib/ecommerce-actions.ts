@@ -20,6 +20,7 @@ import type {
   CreateManualOrderInput,
   Order,
   DashboardStats,
+  PaginatedResult,
 } from "@/types/ecommerce";
 
 async function getValidToken(): Promise<string | null> {
@@ -90,6 +91,32 @@ export async function getProducts(query?: {
   const qs = params.toString() ? `?${params.toString()}` : "";
   const res = await apiRequest<Product[]>(`/products${qs}`);
   return res.data || [];
+}
+
+export async function getPaginatedProducts(query: {
+  page: number;
+  limit?: number;
+  search?: string;
+  category?: string;
+  stockFilter?: string;
+}): Promise<PaginatedResult<Product>> {
+  const params = new URLSearchParams();
+  params.append("page", String(query.page));
+  if (query.limit) params.append("limit", String(query.limit));
+  if (query.search) params.append("search", query.search);
+  if (query.category) params.append("category", query.category);
+  if (query.stockFilter) params.append("stockFilter", query.stockFilter);
+
+  const res = await apiRequest<PaginatedResult<Product>>(`/products?${params.toString()}`);
+  return (
+    res.data || {
+      data: [],
+      total: 0,
+      page: query.page,
+      limit: query.limit || 10,
+      totalPages: 1,
+    }
+  );
 }
 
 export async function getProductById(id: number): Promise<Product | null> {
@@ -185,6 +212,28 @@ export async function getPromotions(): Promise<Promotion[]> {
   return res.data || [];
 }
 
+export async function getPaginatedPromotions(query: {
+  page: number;
+  limit?: number;
+  search?: string;
+}): Promise<PaginatedResult<Promotion>> {
+  const params = new URLSearchParams();
+  params.append("page", String(query.page));
+  if (query.limit) params.append("limit", String(query.limit));
+  if (query.search) params.append("search", query.search);
+
+  const res = await apiRequest<PaginatedResult<Promotion>>(`/promotions?${params.toString()}`);
+  return (
+    res.data || {
+      data: [],
+      total: 0,
+      page: query.page,
+      limit: query.limit || 10,
+      totalPages: 1,
+    }
+  );
+}
+
 export async function createPromotionAction(
   data: CreatePromotionInput
 ): Promise<ApiResponse<Promotion>> {
@@ -234,6 +283,30 @@ export async function createManualOrderAction(
 export async function getOrders(): Promise<Order[]> {
   const res = await apiRequest<Order[]>(`/orders`);
   return res.data || [];
+}
+
+export async function getPaginatedOrders(query: {
+  page: number;
+  limit?: number;
+  search?: string;
+  status?: string;
+}): Promise<PaginatedResult<Order>> {
+  const params = new URLSearchParams();
+  params.append("page", String(query.page));
+  if (query.limit) params.append("limit", String(query.limit));
+  if (query.search) params.append("search", query.search);
+  if (query.status && query.status !== "all") params.append("status", query.status);
+
+  const res = await apiRequest<PaginatedResult<Order>>(`/orders?${params.toString()}`);
+  return (
+    res.data || {
+      data: [],
+      total: 0,
+      page: query.page,
+      limit: query.limit || 10,
+      totalPages: 1,
+    }
+  );
 }
 
 export async function getOrderById(id: number): Promise<Order | null> {

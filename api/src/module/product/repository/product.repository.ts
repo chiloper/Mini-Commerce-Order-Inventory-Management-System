@@ -65,6 +65,66 @@ export class ProductRepository {
     return list.map((p) => this.transformProduct(p));
   }
 
+  async findPaginated(query: QueryProductDto): Promise<{
+    data: ProductWithCategory[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }> {
+    const page = Math.max(1, Number(query.page) || 1);
+    const limit = Math.max(1, Number(query.limit) || 10);
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.ProductWhereInput = {};
+
+    if (query.activeOnly) {
+      where.isActive = true;
+    }
+
+    if (query.catagoryId) {
+      where.catagoryId = query.catagoryId;
+    }
+
+    if (query.category) {
+      where.catagory = {
+        name: query.category,
+      };
+    }
+
+    if (query.search && query.search.trim()) {
+      where.OR = [
+        { name: { contains: query.search.trim() } },
+        { sku: { contains: query.search.trim() } },
+      ];
+    }
+
+    if (query.stockFilter === "low") {
+      where.stock = { gt: 0, lte: 10 };
+    } else if (query.stockFilter === "out") {
+      where.stock = 0;
+    }
+
+    const total = await this.prisma.product.count({ where });
+    const list = await this.prisma.product.findMany({
+      where,
+      skip,
+      take: limit,
+      include: {
+        catagory: true,
+      },
+      orderBy: { id: "desc" },
+    });
+
+    return {
+      data: list.map((p) => this.transformProduct(p)),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit) || 1,
+    };
+  }
+
   async findById(id: number): Promise<ProductWithCategory | null> {
     const product = await this.prisma.product.findUnique({
       where: { id },

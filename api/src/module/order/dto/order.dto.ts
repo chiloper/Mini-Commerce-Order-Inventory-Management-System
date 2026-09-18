@@ -173,3 +173,44 @@ export class CreateManualOrderDto {
   items!: ManualOrderItemDto[];
 }
 
+export class QueryOrderDto {
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Type(() => Number)
+  page?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Type(() => Number)
+  limit?: number;
+
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+  @IsOptional()
+  @IsString()
+  status?: string;
+}
+
+export class QueryPromotionDto {
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Type(() => Number)
+  page?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Type(() => Number)
+  limit?: number;
+
+  @IsOptional()
+  @IsString()
+  search?: string;
+}
+
+

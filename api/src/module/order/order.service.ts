@@ -11,6 +11,8 @@ import {
   CheckoutDto,
   CreateManualOrderDto,
   CreatePromotionDto,
+  QueryOrderDto,
+  QueryPromotionDto,
   UpdateOrderStatusDto,
   UpdatePromotionDto,
   ValidatePromotionDto,
@@ -19,6 +21,7 @@ import type {
   DashboardStatsResult,
   DiscountBreakdownData,
   OrderWithRelations,
+  PaginatedResult,
   ValidatePromotionResult,
 } from "./types/order.types";
 import type { Order, Promotion } from "../../generated/prisma/client";
@@ -378,6 +381,14 @@ export class OrderService {
     return await this.orderRepository.findOrdersByUserId(userId);
   }
 
+  async findOrdersPaginated(
+    userId: number,
+    role?: string,
+    query?: QueryOrderDto
+  ): Promise<PaginatedResult<OrderWithRelations>> {
+    return await this.orderRepository.findOrdersPaginated(userId, role, query);
+  }
+
   async findOrderById(id: number): Promise<OrderWithRelations> {
     const order = await this.orderRepository.findOrderById(id);
     if (!order) {
@@ -407,6 +418,12 @@ export class OrderService {
 
   async getPromotions(): Promise<Promotion[]> {
     return await this.orderRepository.findAllPromotions();
+  }
+
+  async getPromotionsPaginated(
+    query?: QueryPromotionDto
+  ): Promise<PaginatedResult<Promotion>> {
+    return await this.orderRepository.findPromotionsPaginated(query);
   }
 
   async createPromotion(dto: CreatePromotionDto): Promise<Promotion> {

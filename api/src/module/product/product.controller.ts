@@ -27,7 +27,10 @@ export class ProductController {
 
   @Public()
   @Get("products")
-  findAll(@Query() query: QueryProductDto): Promise<ProductWithCategory[]> {
+  findAll(@Query() query: QueryProductDto): Promise<unknown> {
+    if (query.page !== undefined) {
+      return this.productService.findPaginated(query);
+    }
     return this.productService.findAll(query);
   }
 

@@ -12,6 +12,10 @@ export class ProductService {
     return await this.productRepository.findAll(query);
   }
 
+  async findPaginated(query: QueryProductDto) {
+    return await this.productRepository.findPaginated(query);
+  }
+
   async findById(id: number): Promise<ProductWithCategory> {
     const product = await this.productRepository.findById(id);
     if (!product) {
