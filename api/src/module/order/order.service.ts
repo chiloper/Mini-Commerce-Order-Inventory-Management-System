@@ -11,8 +11,15 @@ import {
   CheckoutDto,
   CreatePromotionDto,
   UpdateOrderStatusDto,
+  UpdatePromotionDto,
   ValidatePromotionDto,
 } from "./dto/order.dto";
+import type {
+  DashboardStatsResult,
+  OrderWithRelations,
+  ValidatePromotionResult,
+} from "./types/order.types";
+import type { Order, Promotion } from "../../generated/prisma/client";
 
 @Injectable()
 export class OrderService {
@@ -22,7 +29,7 @@ export class OrderService {
     private readonly prisma: PrismaService
   ) {}
 
-  async validatePromotion(dto: ValidatePromotionDto) {
+  async validatePromotion(dto: ValidatePromotionDto): Promise<ValidatePromotionResult> {
     const promo = await this.orderRepository.findPromotionByCode(dto.code);
     if (!promo) {
       throw new NotFoundException(`โค้ด ${dto.code} ไม่ถูกต้อง`);
@@ -60,7 +67,7 @@ export class OrderService {
     };
   }
 
-  async checkout(userId: number, dto: CheckoutDto) {
+  async checkout(userId: number, dto: CheckoutDto): Promise<unknown> {
     // 1. Check Idempotency Key
     const existingKey = await this.orderRepository.findIdempotencyKey(
       dto.idempotencyKey
@@ -148,6 +155,13 @@ export class OrderService {
         shippingAddress: dto.shippingAddress || "-",
         phone: dto.phone || "-",
         statusText: "paid", // Initial order status
+        items: cartItems.map((it) => ({
+          productId: it.productId,
+          name: it.product?.name,
+          sku: it.product?.sku,
+          price: it.product?.price,
+          quantity: it.quantity,
+        })),
       };
 
       const newOrder = await tx.order.create({
@@ -200,14 +214,14 @@ export class OrderService {
     return order;
   }
 
-  async findOrders(userId: number, role?: string) {
+  async findOrders(userId: number, role?: string): Promise<OrderWithRelations[]> {
     if (role === "admin") {
       return await this.orderRepository.findAllOrders();
     }
     return await this.orderRepository.findOrdersByUserId(userId);
   }
 
-  async findOrderById(id: number) {
+  async findOrderById(id: number): Promise<OrderWithRelations> {
     const order = await this.orderRepository.findOrderById(id);
     if (!order) {
       throw new NotFoundException(`ไม่พบคำสั่งซื้อ #${id}`);
@@ -215,7 +229,7 @@ export class OrderService {
     return order;
   }
 
-  async updateStatus(id: number, dto: UpdateOrderStatusDto) {
+  async updateStatus(id: number, dto: UpdateOrderStatusDto): Promise<Order> {
     const updated = await this.orderRepository.updateOrderStatus(id, dto.status);
     if (!updated) {
       throw new NotFoundException(`ไม่พบคำสั่งซื้อ #${id}`);
@@ -223,11 +237,11 @@ export class OrderService {
     return updated;
   }
 
-  async getPromotions() {
+  async getPromotions(): Promise<Promotion[]> {
     return await this.orderRepository.findAllPromotions();
   }
 
-  async createPromotion(dto: CreatePromotionDto) {
+  async createPromotion(dto: CreatePromotionDto): Promise<Promotion> {
     const existing = await this.orderRepository.findPromotionByCode(dto.code);
     if (existing) {
       throw new ConflictException(`โค้ด ${dto.code} มีอยู่แล้ว`);
@@ -235,15 +249,15 @@ export class OrderService {
     return await this.orderRepository.createPromotion(dto);
   }
 
-  async updatePromotion(id: number, dto: any) {
+  async updatePromotion(id: number, dto: UpdatePromotionDto): Promise<Promotion> {
     return await this.orderRepository.updatePromotion(id, dto);
   }
 
-  async deletePromotion(id: number) {
+  async deletePromotion(id: number): Promise<Promotion> {
     return await this.orderRepository.deletePromotion(id);
   }
 
-  async getDashboardStats() {
+  async getDashboardStats(): Promise<DashboardStatsResult> {
     return await this.orderRepository.getDashboardStats();
   }
 }

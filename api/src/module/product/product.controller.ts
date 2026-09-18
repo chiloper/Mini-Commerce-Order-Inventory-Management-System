@@ -18,6 +18,8 @@ import {
 } from "./dto/product.dto";
 import { Public } from "../auth/decorators/public.decorator";
 import { Roles } from "../auth/decorators/role.decorator";
+import type { ProductWithCategory } from "./types/product.types";
+import type { Category, Product } from "../../generated/prisma/client";
 
 @Controller()
 export class ProductController {
@@ -25,19 +27,19 @@ export class ProductController {
 
   @Public()
   @Get("products")
-  findAll(@Query() query: QueryProductDto) {
+  findAll(@Query() query: QueryProductDto): Promise<ProductWithCategory[]> {
     return this.productService.findAll(query);
   }
 
   @Public()
   @Get("products/:id")
-  findOne(@Param("id", ParseIntPipe) id: number) {
+  findOne(@Param("id", ParseIntPipe) id: number): Promise<ProductWithCategory> {
     return this.productService.findById(id);
   }
 
   @Roles("admin")
   @Post("products")
-  create(@Body() dto: CreateProductDto) {
+  create(@Body() dto: CreateProductDto): Promise<ProductWithCategory> {
     return this.productService.create(dto);
   }
 
@@ -46,25 +48,25 @@ export class ProductController {
   update(
     @Param("id", ParseIntPipe) id: number,
     @Body() dto: UpdateProductDto
-  ) {
+  ): Promise<ProductWithCategory> {
     return this.productService.update(id, dto);
   }
 
   @Roles("admin")
   @Delete("products/:id")
-  remove(@Param("id", ParseIntPipe) id: number) {
+  remove(@Param("id", ParseIntPipe) id: number): Promise<Product> {
     return this.productService.remove(id);
   }
 
   @Public()
   @Get("categories")
-  getCategories() {
+  getCategories(): Promise<Category[]> {
     return this.productService.getCategories();
   }
 
   @Roles("admin")
   @Post("categories")
-  createCategory(@Body() dto: CreateCategoryDto) {
+  createCategory(@Body() dto: CreateCategoryDto): Promise<Category> {
     return this.productService.createCategory(dto);
   }
 }

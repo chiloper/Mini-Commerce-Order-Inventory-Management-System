@@ -1,6 +1,21 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
 import { PrismaMariaDb } from "@prisma/adapter-mariadb";
+import type { SecureVersion } from "node:tls";
 import { PrismaClient } from "../generated/prisma/client";
+
+interface MariaDbPoolSslOptions {
+  minVersion?: SecureVersion;
+  rejectUnauthorized?: boolean;
+}
+
+interface MariaDbPoolConfig {
+  host: string;
+  port: number;
+  user: string;
+  password: string;
+  database: string;
+  ssl?: MariaDbPoolSslOptions;
+}
 
 @Injectable()
 export class PrismaService
@@ -22,7 +37,7 @@ export class PrismaService
         url.hostname.includes("aws") ||
         connectionStr.includes("ssl");
 
-      const poolOptions: any = {
+      const poolOptions: MariaDbPoolConfig = {
         host: url.hostname,
         port: Number(url.port) || 3306,
         user: decodeURIComponent(url.username),

@@ -1,5 +1,6 @@
 import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { ProductRepository } from "./repository/product.repository";
+import { ProductWithCategory } from "./types/product.types";
 import { CreateCategoryDto, CreateProductDto, QueryProductDto, UpdateProductDto } from "./dto/product.dto";
 import { Category, Product } from "../../generated/prisma/client";
 
@@ -7,11 +8,11 @@ import { Category, Product } from "../../generated/prisma/client";
 export class ProductService {
   constructor(private readonly productRepository: ProductRepository) {}
 
-  async findAll(query: QueryProductDto): Promise<(Product & { catagory: Category | null })[]> {
+  async findAll(query: QueryProductDto): Promise<ProductWithCategory[]> {
     return await this.productRepository.findAll(query);
   }
 
-  async findById(id: number): Promise<Product & { catagory: Category | null }> {
+  async findById(id: number): Promise<ProductWithCategory> {
     const product = await this.productRepository.findById(id);
     if (!product) {
       throw new NotFoundException(`Product with ID ${id} not found`);
@@ -19,7 +20,7 @@ export class ProductService {
     return product;
   }
 
-  async findBySku(sku: string): Promise<Product & { catagory: Category | null }> {
+  async findBySku(sku: string): Promise<ProductWithCategory> {
     const product = await this.productRepository.findBySku(sku);
     if (!product) {
       throw new NotFoundException(`Product with SKU ${sku} not found`);
@@ -27,7 +28,7 @@ export class ProductService {
     return product;
   }
 
-  async create(dto: CreateProductDto): Promise<Product> {
+  async create(dto: CreateProductDto): Promise<ProductWithCategory> {
     const existing = await this.productRepository.findBySku(dto.sku);
     if (existing) {
       throw new ConflictException(`Product with SKU ${dto.sku} already exists`);
@@ -35,7 +36,7 @@ export class ProductService {
     return await this.productRepository.create(dto);
   }
 
-  async update(id: number, dto: UpdateProductDto): Promise<Product> {
+  async update(id: number, dto: UpdateProductDto): Promise<ProductWithCategory> {
     await this.findById(id);
     return await this.productRepository.update(id, dto);
   }

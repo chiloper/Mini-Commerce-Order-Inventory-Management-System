@@ -1,18 +1,22 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../../../prisma/prisma.service";
 import { CreateProductDto, QueryProductDto, UpdateProductDto } from "../dto/product.dto";
-import { Category, Product } from "../../../generated/prisma/client";
+import { Category, Product, Prisma } from "../../../generated/prisma/client";
+
+import type { ProductWithCategory } from "../types/product.types";
+export type { ProductWithCategory };
 
 @Injectable()
 export class ProductRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  private transformProduct(p: any): any {
-    if (!p) return p;
+  private transformProduct<T extends { images?: string | null; imageUrl?: string | null }>(
+    p: T
+  ): Omit<T, "images"> & { images: string[] } {
     let parsedImages: string[] = [];
     if (p.images) {
       try {
-        parsedImages = typeof p.images === "string" ? JSON.parse(p.images) : p.images;
+        parsedImages = typeof p.images === "string" ? JSON.parse(p.images) : (p.images as unknown as string[]);
       } catch {
         parsedImages = [];
       }
@@ -26,8 +30,8 @@ export class ProductRepository {
     };
   }
 
-  async findAll(query: QueryProductDto): Promise<(Product & { catagory: Category | null })[]> {
-    const where: any = {};
+  async findAll(query: QueryProductDto): Promise<ProductWithCategory[]> {
+    const where: Prisma.ProductWhereInput = {};
 
     if (query.activeOnly) {
       where.isActive = true;
@@ -61,27 +65,27 @@ export class ProductRepository {
     return list.map((p) => this.transformProduct(p));
   }
 
-  async findById(id: number): Promise<(Product & { catagory: Category | null }) | null> {
+  async findById(id: number): Promise<ProductWithCategory | null> {
     const product = await this.prisma.product.findUnique({
       where: { id },
       include: {
         catagory: true,
       },
     });
-    return this.transformProduct(product);
+    return product ? this.transformProduct(product) : null;
   }
 
-  async findBySku(sku: string): Promise<(Product & { catagory: Category | null }) | null> {
+  async findBySku(sku: string): Promise<ProductWithCategory | null> {
     const product = await this.prisma.product.findUnique({
       where: { sku },
       include: {
         catagory: true,
       },
     });
-    return this.transformProduct(product);
+    return product ? this.transformProduct(product) : null;
   }
 
-  async create(data: CreateProductDto): Promise<Product> {
+  async create(data: CreateProductDto): Promise<ProductWithCategory> {
     let primaryUrl = data.imageUrl;
     let imagesJson: string | null = null;
     if (data.images && Array.isArray(data.images)) {
@@ -107,9 +111,9 @@ export class ProductRepository {
     return this.transformProduct(created);
   }
 
-  async update(id: number, data: UpdateProductDto): Promise<Product> {
+  async update(id: number, data: UpdateProductDto): Promise<ProductWithCategory> {
     let primaryUrl = data.imageUrl;
-    let imagesJson: string | undefined = undefined;
+    let imagesJson: string | null | undefined = undefined;
     if (data.images !== undefined) {
       if (Array.isArray(data.images)) {
         imagesJson = JSON.stringify(data.images);
@@ -117,7 +121,7 @@ export class ProductRepository {
           primaryUrl = data.images[0];
         }
       } else {
-        imagesJson = null as any;
+        imagesJson = null;
       }
     }
 

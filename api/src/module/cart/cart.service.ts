@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from "@nestjs/comm
 import { CartRepository } from "./repository/cart.repository";
 import { AddToCartDto, UpdateCartItemDto } from "./dto/cart.dto";
 import { ProductRepository } from "../product/repository/product.repository";
+import { CartItemDetail, CartSummary } from "./types/cart.types";
 
 @Injectable()
 export class CartService {
@@ -10,7 +11,7 @@ export class CartService {
     private readonly productRepository: ProductRepository
   ) {}
 
-  async getCart(userId: number) {
+  async getCart(userId: number): Promise<CartSummary> {
     const cart = await this.cartRepository.getActiveCartByUserId(userId);
 
     const items = cart.CartItem.map((item) => {
@@ -44,7 +45,7 @@ export class CartService {
     };
   }
 
-  async addItem(userId: number, dto: AddToCartDto) {
+  async addItem(userId: number, dto: AddToCartDto): Promise<CartSummary> {
     const product = await this.productRepository.findById(dto.productId);
     if (!product) {
       throw new NotFoundException(`Product ID ${dto.productId} not found`);
@@ -69,7 +70,7 @@ export class CartService {
     return this.getCart(userId);
   }
 
-  async updateItem(userId: number, itemId: number, dto: UpdateCartItemDto) {
+  async updateItem(userId: number, itemId: number, dto: UpdateCartItemDto): Promise<CartSummary> {
     const item = await this.cartRepository.findCartItemById(itemId);
     if (!item) {
       throw new NotFoundException(`Cart item with ID ${itemId} not found`);
@@ -91,7 +92,7 @@ export class CartService {
     return this.getCart(userId);
   }
 
-  async removeItem(userId: number, itemId: number) {
+  async removeItem(userId: number, itemId: number): Promise<CartSummary> {
     const item = await this.cartRepository.findCartItemById(itemId);
     if (!item) {
       throw new NotFoundException(`Cart item with ID ${itemId} not found`);
@@ -105,7 +106,7 @@ export class CartService {
     return this.getCart(userId);
   }
 
-  async clearCart(userId: number) {
+  async clearCart(userId: number): Promise<CartSummary> {
     const cart = await this.cartRepository.getActiveCartByUserId(userId);
     await this.cartRepository.clearCart(cart.id);
     return this.getCart(userId);
