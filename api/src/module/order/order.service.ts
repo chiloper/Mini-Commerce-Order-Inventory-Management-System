@@ -113,6 +113,7 @@ export class OrderService {
     );
 
     let promotionId: number | null = null;
+    let promoUsageLimit: number | null = null;
     let discountAmount = 0;
     let promoDescription = "";
 
@@ -122,6 +123,7 @@ export class OrderService {
         subtotal,
       });
       promotionId = promoResult.id;
+      promoUsageLimit = promoResult.promotion?.usageLimit ?? null;
       discountAmount = promoResult.discountAmount;
       promoDescription = promoResult.description;
     }
@@ -135,25 +137,41 @@ export class OrderService {
 
     // 5. Execute Atomic Transaction
     const order = await this.prisma.$transaction(async (tx) => {
-      // a. Decrement inventory for each product
-      for (const item of cartItems) {
-        const prod = await tx.product.findUnique({
-          where: { id: item.productId! },
+      // a. Sort cart items by productId ascending to eliminate deadlock risks
+      const sortedCartItems = [...cartItems].sort(
+        (a, b) => (a.productId ?? 0) - (b.productId ?? 0)
+      );
+
+      // b. Decrement inventory atomically with conditional check (Compare-and-Swap)
+      for (const item of sortedCartItems) {
+        if (!item.productId) continue;
+        const updateResult = await tx.product.updateMany({
+          where: {
+            id: item.productId,
+            stock: { gte: item.quantity },
+            isActive: true,
+          },
+          data: {
+            stock: { decrement: item.quantity },
+          },
         });
 
-        if (!prod || prod.stock < item.quantity) {
+        if (updateResult.count === 0) {
+          const freshProduct = await tx.product.findUnique({
+            where: { id: item.productId },
+          });
+          if (!freshProduct || !freshProduct.isActive) {
+            throw new ConflictException(
+              `สินค้า "${freshProduct?.name || item.productId}" ไม่พร้อมจำหน่ายหรือถูกปิดการขายแล้ว`
+            );
+          }
           throw new ConflictException(
-            `สินค้า ${prod?.name || item.productId} สต็อกไม่เพียงพอระหว่างทำรายการ`
+            `สินค้า "${freshProduct.name}" สต็อกไม่เพียงพอระหว่างทำรายการ (คงเหลือ ${freshProduct.stock} ชิ้น, คุณสั่งซื้อ ${item.quantity} ชิ้น)`
           );
         }
-
-        await tx.product.update({
-          where: { id: item.productId! },
-          data: { stock: { decrement: item.quantity } },
-        });
       }
 
-      // b. Create Order
+      // c. Create Order
       const discountBreakdown = {
         subtotal,
         discountAmount,
@@ -196,12 +214,30 @@ export class OrderService {
         },
       });
 
-      // c. Increment promotion usage
+      // d. Increment promotion usage atomically with quota & expiry condition using pure Prisma Client
       if (promotionId) {
-        await tx.promotion.update({
-          where: { id: promotionId },
-          data: { usedCount: { increment: 1 } },
+        let limit = promoUsageLimit;
+        if (limit === null) {
+          const freshPromo = await tx.promotion.findUnique({ where: { id: promotionId } });
+          limit = freshPromo?.usageLimit ?? 0;
+        }
+
+        const promoResult = await tx.promotion.updateMany({
+          where: {
+            id: promotionId,
+            usedCount: { lt: limit },
+            expiresAt: { gt: new Date() },
+          },
+          data: {
+            usedCount: { increment: 1 },
+          },
         });
+
+        if (promoResult.count === 0) {
+          throw new ConflictException(
+            `โค้ดโปรโมชั่นถูกใช้งานจนครบโควตา หรือหมดอายุระหว่างทำรายการ`
+          );
+        }
       }
 
       // d. Clear user's cart
@@ -271,6 +307,7 @@ export class OrderService {
     );
 
     let promotionId: number | null = null;
+    let promoUsageLimit: number | null = null;
     let discountAmount = Math.max(0, dto.discountAmount || 0);
     let promoDescription = "";
     let promoCode: string | null = null;
@@ -281,6 +318,7 @@ export class OrderService {
         subtotal,
       });
       promotionId = promoResult.id;
+      promoUsageLimit = promoResult.promotion?.usageLimit ?? null;
       discountAmount = promoResult.discountAmount;
       promoDescription = promoResult.description;
       promoCode = promoResult.code;
@@ -302,27 +340,59 @@ export class OrderService {
 
     const newOrder = await this.prisma.$transaction(async (tx) => {
       if (isPaidOrProcessing) {
-        for (const it of dto.items) {
-          const freshProduct = await tx.product.findUnique({
-            where: { id: it.productId },
+        // Sort items by productId ascending to eliminate deadlock risks
+        const sortedItems = [...dto.items].sort((a, b) => a.productId - b.productId);
+        for (const it of sortedItems) {
+          const updateResult = await tx.product.updateMany({
+            where: {
+              id: it.productId,
+              stock: { gte: it.quantity },
+              isActive: true,
+            },
+            data: {
+              stock: { decrement: it.quantity },
+            },
           });
-          if (!freshProduct || freshProduct.stock < it.quantity) {
+
+          if (updateResult.count === 0) {
+            const freshProduct = await tx.product.findUnique({
+              where: { id: it.productId },
+            });
+            if (!freshProduct || !freshProduct.isActive) {
+              throw new ConflictException(
+                `สินค้า "${freshProduct?.name || it.productId}" ไม่พร้อมจำหน่ายหรือถูกปิดการขายแล้ว`
+              );
+            }
             throw new ConflictException(
-              `สินค้า ${freshProduct?.name || it.productId} สต็อกไม่เพียงพอระหว่างทำรายการ`
+              `สินค้า "${freshProduct.name}" สต็อกไม่เพียงพอระหว่างทำรายการ (คงเหลือ ${freshProduct.stock} ชิ้น, คุณสั่งซื้อ ${it.quantity} ชิ้น)`
             );
           }
-          await tx.product.update({
-            where: { id: it.productId },
-            data: { stock: { decrement: it.quantity } },
-          });
         }
       }
 
       if (promotionId) {
-        await tx.promotion.update({
-          where: { id: promotionId },
-          data: { usedCount: { increment: 1 } },
+        let limit = promoUsageLimit;
+        if (limit === null) {
+          const freshPromo = await tx.promotion.findUnique({ where: { id: promotionId } });
+          limit = freshPromo?.usageLimit ?? 0;
+        }
+
+        const promoResult = await tx.promotion.updateMany({
+          where: {
+            id: promotionId,
+            usedCount: { lt: limit },
+            expiresAt: { gt: new Date() },
+          },
+          data: {
+            usedCount: { increment: 1 },
+          },
         });
+
+        if (promoResult.count === 0) {
+          throw new ConflictException(
+            `โค้ดโปรโมชั่นถูกใช้งานจนครบโควตา หรือหมดอายุระหว่างทำรายการ`
+          );
+        }
       }
 
       const discountBreakdown = {

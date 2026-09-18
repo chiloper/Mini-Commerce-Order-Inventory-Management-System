@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { ConflictException, Injectable } from "@nestjs/common";
 import { PrismaService } from "../../../prisma/prisma.service";
 import { CreatePromotionDto, QueryOrderDto, QueryPromotionDto, UpdatePromotionDto } from "../dto/order.dto";
 import { Prisma, Promotion } from "../../../generated/prisma/client";
@@ -258,22 +258,73 @@ export class OrderRepository {
   }
 
   async updateOrderStatus(id: number, statusText: string) {
-    const order = await this.prisma.order.findUnique({ where: { id } });
-    if (!order) return null;
+    return await this.prisma.$transaction(async (tx) => {
+      const order = await tx.order.findUnique({ where: { id } });
+      if (!order) return null;
 
-    const breakdown: DiscountBreakdownData =
-      order.discountBreakdown && typeof order.discountBreakdown === "object"
-        ? (order.discountBreakdown as unknown as DiscountBreakdownData)
-        : {};
+      const breakdown: DiscountBreakdownData =
+        order.discountBreakdown && typeof order.discountBreakdown === "object"
+          ? (order.discountBreakdown as unknown as DiscountBreakdownData)
+          : {};
 
-    breakdown.statusText = statusText;
+      const previousStatus = (breakdown.statusText || (order.status ? "paid" : "wait")).toLowerCase();
+      const newStatus = statusText.toLowerCase();
 
-    return await this.prisma.order.update({
-      where: { id },
-      data: {
-        status: statusText !== "cancelled",
-        discountBreakdown: breakdown as unknown as Prisma.InputJsonValue,
-      },
+      // If previous status was paid/processing (stock was deducted) and now cancelled:
+      const wasStockDeducted = previousStatus === "paid" || previousStatus === "processing";
+      const isNowCancelled = newStatus === "cancelled";
+
+      if (wasStockDeducted && isNowCancelled && Array.isArray(breakdown.items)) {
+        for (const it of breakdown.items) {
+          if (it.productId && (it.quantity ?? 0) > 0) {
+            await tx.product.update({
+              where: { id: it.productId },
+              data: { stock: { increment: it.quantity } },
+            });
+          }
+        }
+      }
+
+      // If previous status was wait (stock NOT yet deducted) and now paid/processing:
+      const wasNotDeducted = previousStatus === "wait" || previousStatus === "pending";
+      const isNowDeducted = newStatus === "paid" || newStatus === "processing";
+
+      if (wasNotDeducted && isNowDeducted && Array.isArray(breakdown.items)) {
+        const sortedItems = [...breakdown.items].sort((a, b) => (a.productId ?? 0) - (b.productId ?? 0));
+        for (const it of sortedItems) {
+          if (it.productId && (it.quantity ?? 0) > 0) {
+            const updateResult = await tx.product.updateMany({
+              where: {
+                id: it.productId,
+                stock: { gte: it.quantity },
+                isActive: true,
+              },
+              data: {
+                stock: { decrement: it.quantity },
+              },
+            });
+
+            if (updateResult.count === 0) {
+              const freshProduct = await tx.product.findUnique({
+                where: { id: it.productId },
+              });
+              throw new ConflictException(
+                `สินค้า "${freshProduct?.name || it.productId}" สต็อกไม่เพียงพอ (คงเหลือ ${freshProduct?.stock ?? 0} ชิ้น, คำสั่งซื้อนี้ต้องการ ${it.quantity} ชิ้น)`
+              );
+            }
+          }
+        }
+      }
+
+      breakdown.statusText = statusText;
+
+      return await tx.order.update({
+        where: { id },
+        data: {
+          status: newStatus !== "cancelled",
+          discountBreakdown: breakdown as unknown as Prisma.InputJsonValue,
+        },
+      });
     });
   }
 

@@ -20,9 +20,23 @@
 - ✅ **สิ่งที่ต้องทำ**: ตารางข้อมูลหลักในระบบ (เช่น ภาพรวมคำสั่งซื้อล่าสุด, รายการคำสั่งซื้อ, สินค้าและสต็อก, โปรโมชั่น) ต้องใช้ Server-side API Pagination ผ่าน Query Parameters (`page`, `limit`, `search`, `status`, `stockFilter`)
 - ⚠️ **Backward Compatibility**: Endpoint ฝั่ง Backend ที่รองรับ Pagination (`/products`, `/orders`, `/promotions`) **ต้องรักษาความเข้ากันได้ย้อนหลัง** โดยหาก Request ไม่มีการส่งค่า `page` เข้ามา ระบบจะต้องส่งข้อมูลกลับเป็น Flat Array รูปแบบเดิม เพื่อไม่ให้กระทบต่อหน้าร้าน (Storefront) หรือ Dropdown ตัวเลือกสินค้า
 
-### 1.4 การจัดการสต็อกสินค้า (Inventory Operations) 📦
+### 1.4 การจัดการสต็อกสินค้าและการป้องกัน Race Condition (Inventory Concurrency & Overselling Prevention) 📦
+- ❌ **ห้ามใช้ Read-then-Write (`findUnique` แล้วค่อย `update`) ในการตัดสต็อกเด็ดขาด**:
+  - เมื่อมีผู้ใช้สั่งซื้อพร้อมกันหลายคน (Concurrency / Flash Sale) การอ่านสต็อกแบบไม่ล็อคแถวจะทำให้ทุก Request ผ่านเงื่อนไขพร้อมกัน ส่งผลให้ **สต็อกติดลบ หรือเกิดการขายเกินสต็อก (Overselling)**
+- ✅ **ต้องใช้ Atomic Conditional Update (Compare-And-Swap / CAS)**:
+  - ใช้ `tx.product.updateMany({ where: { id: productId, stock: { gte: quantity }, isActive: true }, data: { stock: { decrement: quantity } } })`
+  - ตรวจสอบ `if (updateResult.count === 0)` หากสต็อกถูกแย่งตัดไปก่อนหน้า คำสั่งจะอัปเดต 0 แถว ระบบจะต้อง Throw `ConflictException` (HTTP 409) เพื่อทำ Transaction Rollback ทันที ป้องกันสินค้าติดลบ 100%
+- ✅ **Deadlock Prevention (การเรียงลำดับการ Lock)**:
+  - รายการสินค้าในตะกร้าและออเดอร์ต้องถูกจัดเรียงตาม `productId` จากน้อยไปมาก (`sort((a, b) => a.productId - b.productId)`) ก่อนขอ Row Lock เสมอ เพื่อให้ทุก Transaction ขอ Lock ในลำดับเดียวกัน ป้องกัน Deadlock
+- ✅ **Atomic Promotion Usage Lock (100% Pure Prisma Client)**:
+  - การอัปเดตโควตาโปรโมชั่นต้องทำแบบ Atomic โดยใช้ Prisma Client `tx.promotion.updateMany({ where: { id: promotionId, usedCount: { lt: promoUsageLimit }, expiresAt: { gt: new Date() } }, data: { usedCount: { increment: 1 } } })`
+  - หาก `promoResult.count === 0` ให้ Throw `ConflictException` ทันที เพื่อป้องกันการใช้โค้ดเกินโควตาเมื่อยิงพร้อมกัน โดยไม่ต้องใช้ Raw SQL
 - ⚠️ **การเติมสต็อก (Stock Refill)**: ต้องเป็นการ **"บวกเพิ่ม" จากสต็อกเดิม** (`newStock = currentStock + amountToAdd`) เสมอ ไม่ใช่การพิมพ์ตัวเลขรวมเพื่อเขียนทับค่าเดิม
-- ⚠️ **การตัดสต็อกสินค้า**: เมื่อทำการยืนยันคำสั่งซื้อ หรือสร้างคำสั่งซื้อแบบ Manual Order ต้องตัดสต็อกสินค้าในคลังอย่างถูกต้องและรัดกุม (Atomic Transaction)
+- ⚠️ **การคืนสต็อกเมื่อยกเลิกคำสั่งซื้อ (Restocking on Cancel)**: เมื่อคำสั่งซื้อสถานะ `paid` หรือ `processing` ถูกเปลี่ยนสถานะเป็น `cancelled` จะต้องคืนสต็อก (`increment`) สินค้ากลับเข้าคลังอย่างถูกต้องภายใน Transaction
+
+### 1.5 กฎการอัปเดต agent.md เสมอ (Continuous Documentation Rule) 📝
+- ⚠️ **ทุกๆ ครั้งหลังจากทำงานเสร็จ ให้ไปอัปเดต `agent.md` เสมอ**:
+  - เมื่อมีการแก้ไขโค้ด พัฒนาฟีเจอร์ใหม่ ปรับปรุงโครงสร้าง หรือค้นพบข้อจำกัด/ข้อควรระวังใหม่ๆ AI Agent จะต้องมาอัปเดตเอกสาร `agent.md` นี้ทุกครั้งก่อนส่งมอบงาน เพื่อให้คอมพิวเตอร์เครื่องอื่นหรือ Agent ถัดไปสามารถทำงานต่อได้อย่างต่อเนื่องและถูกต้อง
 
 ---
 
@@ -166,3 +180,5 @@ npm run start             # รัน Production Web Server
 2. [ ] รัน `npm run build` ในโฟลเดอร์ `web` สำเร็จ 0 errors
 3. [ ] เช็คว่าไม่มีการรัน `git commit` หรือ `git push` โดยเด็ดขาด
 4. [ ] ตรวจสอบว่าหน้าจอไม่มีการแตกหัก, ขอบล้น, หรือตัวหนังสือจม
+5. [ ] ตรวจสอบว่าระบบมีความปลอดภัยเรื่อง Concurrency และไม่มี Race Condition (Atomic updates)
+6. [ ] ตรวจสอบว่าได้อัปเดตไฟล์ `agent.md` เรียบร้อยแล้วทุกครั้งก่อนส่งมอบงาน
