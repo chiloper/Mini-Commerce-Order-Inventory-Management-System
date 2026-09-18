@@ -5,7 +5,7 @@ import { clearSession, getCurrentUser, readRefreshToken, writeSession } from "./
 import { PublicUser } from "./type";
 
 export async function loginAction(
-  prevState: any,
+  prevState: unknown,
   formData: FormData
 ): Promise<{ success: boolean; error?: string; user?: PublicUser }> {
   const email = formData.get("email") as string;
@@ -25,7 +25,7 @@ export async function loginAction(
 }
 
 export async function registerAction(
-  prevState: any,
+  prevState: unknown,
   formData: FormData
 ): Promise<{ success: boolean; error?: string; user?: PublicUser }> {
   const email = formData.get("email") as string;

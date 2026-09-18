@@ -1,21 +1,21 @@
 "use client";
 
 import { useEffect, useState, Suspense } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   getProductById,
   getProducts,
   addToCart,
 } from "../../../lib/ecommerce-actions";
+import type { Product } from "@/types/ecommerce";
 
 function ProductDetailContent() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const idParam = searchParams.get("id");
   const skuParam = searchParams.get("sku");
 
-  const [product, setProduct] = useState<any>(null);
+  const [product, setProduct] = useState<Product | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [qty, setQty] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -32,9 +32,9 @@ function ProductDetailContent() {
         const all = await getProducts();
         if (skuParam) {
           const match = all.find((x) => x.sku === skuParam);
-          setProduct(match || all[0]);
+          setProduct(match || all[0] || null);
         } else {
-          setProduct(all[0]);
+          setProduct(all[0] || null);
         }
       }
       setLoading(false);
@@ -46,44 +46,29 @@ function ProductDetailContent() {
 
   if (loading) {
     return (
-      <div style={{ padding: "80px 0", textAlign: "center", color: "var(--color-neutral-600)" }}>
-        กำลังโหลดรายละเอียดสินค้าจาก TiDB Cloud...
+      <div className="py-24 text-center text-sm text-neutral-600">
+        กำลังโหลดข้อมูลสินค้า...
       </div>
     );
   }
 
   if (!product) {
     return (
-      <div style={{ padding: "80px 0", textAlign: "center" }}>
-        <p style={{ fontSize: "18px", color: "var(--color-neutral-700)" }}>ไม่พบสินค้านี้</p>
-        <Link href="/list" className="btn btn-primary" style={{ marginTop: "var(--space-4)" }}>
+      <div className="py-24 text-center">
+        <p className="text-lg text-neutral-700 mb-4">ไม่พบสินค้านี้</p>
+        <Link
+          href="/list"
+          className="inline-block px-5 py-2.5 rounded-lg text-sm font-medium bg-neutral-800 text-white hover:bg-neutral-900 transition-colors"
+        >
           กลับไปหน้ารายการสินค้า
         </Link>
       </div>
     );
   }
 
-  const lowStockThreshold = 10;
-  const avail = Math.max(0, (product.stock || 0) - (product.held || 0));
-  let statusLabel = "พร้อมส่ง";
-  let statusCls = "tag tag-accent";
-  let barColor = "var(--color-accent)";
-
-  if (product.stock === 0) {
-    statusLabel = "หมดชั่วคราว";
-    statusCls = "tag tag-neutral";
-    barColor = "var(--color-neutral-500)";
-  } else if (avail <= lowStockThreshold) {
-    statusLabel = "ใกล้หมด";
-    statusCls = "tag tag-accent-2";
-    barColor = "var(--color-accent-2-500)";
-  }
-
-  const barW = Math.min(100, Math.round(((product.stock || 0) / 50) * 100)) + "%";
-  const stockText = product.stock === 0 ? "รอเข้าคลัง" : `เหลือ ${product.stock} ชิ้น`;
-  const heldText = product.held > 0 ? `กำลังชำระเงินอยู่ ${product.held} ชิ้น` : "ไม่มีรายการค้างชำระ";
-  const soldOut = product.stock === 0;
-  const addLabel = soldOut ? "แจ้งเตือนเมื่อมีของ" : "ใส่ตะกร้า";
+  const stock = product.stock || 0;
+  const soldOut = stock === 0;
+  const addLabel = soldOut ? "สินค้าหมดชั่วคราว" : "ใส่ตะกร้า";
 
   const imagesList: string[] =
     Array.isArray(product.images) && product.images.length > 0
@@ -103,215 +88,132 @@ function ProductDetailContent() {
   };
 
   return (
-    <div style={{ maxWidth: "1280px", margin: "0 auto", padding: "var(--space-6) var(--space-6) var(--space-8)" }}>
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 pb-16">
       {/* Breadcrumb */}
-      <div style={{ marginBottom: "var(--space-4)", fontSize: "13px", color: "var(--color-neutral-700)" }}>
-        <Link href="/list" style={{ color: "var(--color-accent-700)" }}>
+      <div className="mb-6 text-xs text-neutral-600">
+        <Link
+          href="/list"
+          className="text-accent-700 hover:underline font-medium"
+        >
           ← กลับหน้ารายการสินค้า
         </Link>
       </div>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))",
-          gap: "var(--space-8)",
-          alignItems: "start",
-        }}
-      >
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12 items-start">
         {/* Left column: Main Product Shot and Interactive Thumbnails */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
-          <div
-            className="halftone"
-            style={{
-              aspectRatio: "4/3",
-              background:
-                "repeating-linear-gradient(135deg, var(--color-neutral-200) 0 8px, var(--color-neutral-300) 8px 16px)",
-              display: "grid",
-              placeItems: "center",
-              borderRadius: "var(--radius-sm)",
-              overflow: "hidden",
-              position: "relative",
-            }}
-          >
+        <div className="flex flex-col gap-4">
+          <div className="relative aspect-[4/3] w-full bg-neutral-200 dark:bg-neutral-800 rounded-2xl overflow-hidden shadow-sm flex items-center justify-center">
             {activeImage ? (
               <img
                 src={activeImage}
                 alt={product.name}
-                style={{
-                  position: "absolute",
-                  inset: 0,
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "cover",
-                  transition: "opacity 0.2s ease",
-                }}
+                className="w-full h-full object-cover transition-opacity duration-200"
               />
             ) : (
-              <span
-                style={{
-                  fontSize: "11px",
-                  letterSpacing: ".16em",
-                  textTransform: "uppercase",
-                  color: "var(--color-neutral-700)",
-                }}
-              >
-                product shot · 1600×1200
+              <span className="text-xs tracking-widest uppercase font-mono text-neutral-600">
+                product shot · {product.sku}
               </span>
             )}
           </div>
 
           {/* Interactive Thumbnails */}
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: `repeat(${Math.min(Math.max(4, imagesList.length), 6)}, 1fr)`,
-              gap: "var(--space-2)",
-            }}
-          >
-            {Array.from({ length: Math.max(4, imagesList.length) }).map((_, idx) => {
-              const imgUrl = imagesList[idx];
-              const isSelected = imgUrl ? activeImage === imgUrl : false;
-              return (
-                <button
-                  key={idx}
-                  type="button"
-                  disabled={!imgUrl}
-                  onClick={() => imgUrl && setSelectedImage(imgUrl)}
-                  style={{
-                    all: "unset",
-                    cursor: imgUrl ? "pointer" : "default",
-                    aspectRatio: "1",
-                    background:
-                      "repeating-linear-gradient(135deg, var(--color-neutral-200) 0 5px, var(--color-neutral-300) 5px 10px)",
-                    borderRadius: "var(--radius-sm)",
-                    border: isSelected ? "2px solid var(--color-accent)" : "1px solid var(--color-divider)",
-                    overflow: "hidden",
-                    position: "relative",
-                    display: "block",
-                    boxShadow: isSelected ? "0 0 0 1px var(--color-accent)" : "none",
-                  }}
-                  title={imgUrl ? `ดูภาพที่ ${idx + 1}` : undefined}
-                >
-                  {imgUrl ? (
+          {imagesList.length > 0 && (
+            <div className="grid grid-cols-4 sm:grid-cols-6 gap-2.5">
+              {imagesList.map((imgUrl, idx) => {
+                const isSelected = activeImage === imgUrl;
+                return (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setSelectedImage(imgUrl)}
+                    className={`relative aspect-square rounded-lg overflow-hidden border-2 cursor-pointer transition-all ${
+                      isSelected
+                        ? "border-accent ring-2 ring-accent/20 scale-95"
+                        : "border-divider hover:opacity-80"
+                    }`}
+                    title={`ดูภาพที่ ${idx + 1}`}
+                  >
                     <img
                       src={imgUrl}
                       alt={`Thumbnail ${idx + 1}`}
-                      style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                      className="w-full h-full object-cover"
                     />
-                  ) : (
-                    <div
-                      style={{
-                        width: "100%",
-                        height: "100%",
-                        display: "grid",
-                        placeItems: "center",
-                        fontSize: "9px",
-                        color: "var(--color-neutral-500)",
-                        letterSpacing: "0.1em",
-                      }}
-                    >
-                      · {idx + 1} ·
-                    </div>
-                  )}
-                </button>
-              );
-            })}
-          </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Right column: Details, Stock Box, Stepper & Button */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
-          <p
-            style={{
-              margin: 0,
-              fontSize: "11px",
-              letterSpacing: ".12em",
-              textTransform: "uppercase",
-              color: "var(--color-accent-700)",
-              fontWeight: 600,
-            }}
-          >
-            {product.sku} · {product.category?.name || "หมวดหมู่สินค้า"}
-          </p>
-
-          <h2 style={{ margin: 0, fontSize: "34px", lineHeight: 1.1 }}>{product.name}</h2>
-          <p style={{ margin: 0, fontSize: "26px", fontWeight: 600 }}>{formatPrice(product.price)}</p>
-
-          {/* Real-time Stock Box */}
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: "var(--space-2)",
-              padding: "var(--space-3)",
-              background: "var(--color-surface)",
-              borderRadius: "var(--radius-md)",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
-              <span className={statusCls}>{statusLabel}</span>
-              <span style={{ fontSize: "14px" }}>{stockText}</span>
-            </div>
-
-            <div style={{ height: "6px", background: "var(--color-neutral-300)", overflow: "hidden" }}>
-              <div style={{ height: "6px", width: barW, background: barColor }} />
-            </div>
-
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "var(--color-neutral-700)" }}>
-              <span>ขายได้ {avail} ชิ้น</span>
-              <span>{heldText}</span>
-            </div>
+        <div className="flex flex-col gap-4">
+          <div>
+            <p className="text-xs font-mono uppercase tracking-wider text-accent-700 font-semibold mb-1">
+              {product.sku} · {product.catagory?.name || "หมวดหมู่สินค้า"}
+            </p>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-text mb-2">
+              {product.name}
+            </h1>
+            <p className="text-2xl font-bold text-text">
+              {formatPrice(product.price)}
+            </p>
           </div>
 
-          <p style={{ margin: 0, fontSize: "14px", lineHeight: 1.6, color: "var(--color-neutral-800)" }}>
-            {product.description ||
-              "สินค้าจริงจะดึงรายละเอียดจากฐานข้อมูล พร้อมจำนวนคงเหลือที่หักรายการที่ถูกจองระหว่างชำระเงินออกแล้ว จำนวนนี้อัปเดตทุกครั้งที่มีการสั่งซื้อสำเร็จ"}
+          {/* Stock Status Badge */}
+          <div className="flex items-center gap-2 text-sm p-3 rounded-xl border border-divider bg-surface w-fit">
+            <span className="text-neutral-600">สถานะสต็อก:</span>
+            <strong
+              className={`font-semibold ${
+                soldOut ? "text-rose-600" : "text-emerald-700"
+              }`}
+            >
+              {soldOut ? "สินค้าหมดชั่วคราว" : `คงเหลือ ${product.stock} ชิ้น`}
+            </strong>
+          </div>
+
+          <p className="text-sm leading-relaxed text-neutral-700">
+            สินค้าของแท้คุณภาพดี พร้อมจัดส่งด่วนทั่วประเทศ รับประกันความพึงพอใจ
           </p>
 
           {/* Stepper + Add to Cart */}
-          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", marginTop: "var(--space-2)" }}>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                border: "1px solid var(--color-divider)",
-                borderRadius: "var(--radius-md)",
-                background: "var(--color-surface)",
-              }}
-            >
+          <div className="flex items-center gap-3 pt-2">
+            <div className="flex items-center border border-divider rounded-lg bg-surface">
               <button
-                className="btn btn-ghost"
+                type="button"
                 onClick={() => setQty(Math.max(1, qty - 1))}
-                style={{ width: "40px", height: "40px", padding: 0, fontSize: "18px" }}
+                className="w-10 h-10 flex items-center justify-center text-lg font-medium hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-l-lg cursor-pointer transition-colors"
               >
                 −
               </button>
-              <span style={{ minWidth: "36px", textAlign: "center", fontSize: "15px", fontWeight: 600 }}>
+              <span className="min-w-[40px] text-center text-sm font-semibold">
                 {qty}
               </span>
               <button
-                className="btn btn-ghost"
+                type="button"
                 onClick={() => setQty(qty + 1)}
-                disabled={qty >= avail}
-                style={{ width: "40px", height: "40px", padding: 0, fontSize: "18px" }}
+                disabled={qty >= stock}
+                className="w-10 h-10 flex items-center justify-center text-lg font-medium hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-r-lg cursor-pointer transition-colors disabled:opacity-40"
               >
                 +
               </button>
             </div>
 
             <button
-              className="btn btn-primary"
+              type="button"
               onClick={handleAdd}
               disabled={soldOut || adding}
-              style={{ flex: 1, height: "44px", fontSize: "15px" }}
+              className={`flex-1 h-10 px-6 rounded-lg text-sm font-semibold transition-all cursor-pointer shadow-xs ${
+                soldOut
+                  ? "bg-neutral-200 text-neutral-400 cursor-not-allowed border border-neutral-300"
+                  : "bg-neutral-800 text-white hover:bg-neutral-900 active:scale-[0.98]"
+              }`}
             >
               {adding ? "กำลังใส่ตะกร้า..." : addLabel}
             </button>
           </div>
 
-          <p style={{ margin: "var(--space-2) 0 0", fontSize: "12px", color: "var(--color-neutral-700)", lineHeight: 1.6 }}>
-            สต็อกจะถูกจองไว้ 10 นาทีเมื่อกดชำระเงิน หากมีคนชำระสำเร็จก่อน ระบบจะแจ้งเตือนและปรับจำนวนในตะกร้าให้อัตโนมัติ
+          <p className="text-xs text-neutral-500 leading-relaxed mt-1">
+            เมื่อสั่งซื้อระบบจะคำนวณและตัดยอดสต็อกตามคำสั่งซื้ออัตโนมัติ
           </p>
         </div>
       </div>
@@ -321,7 +223,13 @@ function ProductDetailContent() {
 
 export default function ProductDetailPage() {
   return (
-    <Suspense fallback={<div style={{ padding: "60px", textAlign: "center" }}>กำลังโหลด...</div>}>
+    <Suspense
+      fallback={
+        <div className="py-24 text-center text-sm text-neutral-600">
+          กำลังโหลด...
+        </div>
+      }
+    >
       <ProductDetailContent />
     </Suspense>
   );

@@ -10,11 +10,12 @@ import {
 } from "../../../lib/ecommerce-actions";
 import { getSessionUserAction, loginAction } from "../../../lib/auth/actions";
 import { PublicUser } from "../../../lib/auth/type";
+import type { Cart, CartItem, Order } from "@/types/ecommerce";
 
 export default function CheckoutPage() {
   const router = useRouter();
   const [user, setUser] = useState<PublicUser | null>(null);
-  const [cart, setCart] = useState<any>({ items: [], totalQuantity: 0, subtotal: 0 });
+  const [cart, setCart] = useState<Cart>({ items: [], totalQuantity: 0, subtotal: 0 });
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
@@ -39,7 +40,7 @@ export default function CheckoutPage() {
   const [discount, setDiscount] = useState(0);
 
   // Success state
-  const [orderSuccess, setOrderSuccess] = useState<any | null>(null);
+  const [orderSuccess, setOrderSuccess] = useState<Order | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const loadData = async () => {
@@ -141,7 +142,7 @@ export default function CheckoutPage() {
   if (loading) {
     return (
       <div style={{ padding: "80px 0", textAlign: "center", color: "var(--color-neutral-600)" }}>
-        กำลังโหลดข้อมูลการชำระเงินจาก TiDB Cloud...
+        กำลังโหลดข้อมูลการชำระเงิน...
       </div>
     );
   }
@@ -182,7 +183,7 @@ export default function CheckoutPage() {
             เลขที่คำสั่งซื้อ: <strong>#{orderSuccess.id}</strong>
           </p>
           <p style={{ margin: 0, fontSize: "14px", color: "var(--color-neutral-700)" }}>
-            ระบบได้ทำการตัดสต็อกใน TiDB Cloud เรียบร้อยแล้ว ยอดชำระทั้งหมด: <strong>{formatPrice(orderSuccess.totalAmount || total)}</strong> ({paymentMethod})
+            ระบบได้บันทึกคำสั่งซื้อและตัดสต็อกเรียบร้อยแล้ว ยอดชำระทั้งหมด: <strong>{formatPrice(orderSuccess.totalAmount || total)}</strong> ({paymentMethod})
           </p>
 
           <div style={{ display: "flex", justifyContent: "center", gap: "var(--space-3)", marginTop: "var(--space-3)" }}>
@@ -406,11 +407,11 @@ export default function CheckoutPage() {
           <h3 style={{ margin: 0, fontSize: "14px", letterSpacing: ".08em", textTransform: "uppercase", color: "var(--color-neutral-700)", fontWeight: 600 }}>
             รายการ {cart.totalQuantity} ชิ้น
           </h3>
-          {items.map((it: any) => {
-            const product = it.product || {};
-            const avail = Math.max(0, (product.stock || 0) - (product.held || 0));
-            const isLow = avail > 0 && avail <= 10;
-            const isOut = avail === 0;
+          {items.map((it: CartItem) => {
+            const product = it.product;
+            const stock = product?.stock || 0;
+            const isLow = stock > 0 && stock <= 10;
+            const isOut = stock === 0;
 
             let tagCls = "tag tag-accent";
             let tagLabel = "พร้อมส่ง";
@@ -450,13 +451,13 @@ export default function CheckoutPage() {
                     shot
                   </span>
                 </div>
-                <span style={{ flex: 1, fontSize: "14px", fontWeight: 500 }}>{product.name}</span>
+                <span style={{ flex: 1, fontSize: "14px", fontWeight: 500 }}>{product?.name || `สินค้า #${it.productId}`}</span>
                 <span className={tagCls}>{tagLabel}</span>
                 <span style={{ fontSize: "13px", color: "var(--color-neutral-700)", minWidth: "70px", textAlign: "right" }}>
                   × {it.quantity}
                 </span>
                 <span style={{ fontSize: "14px", minWidth: "90px", textAlign: "right", fontWeight: 600 }}>
-                  {formatPrice((product.price || 0) * it.quantity)}
+                  {formatPrice((product?.price || 0) * it.quantity)}
                 </span>
               </div>
             );

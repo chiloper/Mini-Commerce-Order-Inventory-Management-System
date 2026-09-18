@@ -34,8 +34,9 @@ export default function LoginForm() {
         router.push("/list");
         router.refresh();
       }
-    } catch (err: any) {
-      setError(err?.message || "เกิดข้อผิดพลาดในการเชื่อมต่อ");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "เกิดข้อผิดพลาดในการเชื่อมต่อ";
+      setError(msg);
       setLoading(false);
     }
   };
@@ -61,7 +62,7 @@ export default function LoginForm() {
     >
       <div style={{ textAlign: "center" }}>
         <p style={{ margin: "0 0 4px", fontSize: "11px", letterSpacing: ".14em", textTransform: "uppercase", color: "var(--color-accent-700)", fontWeight: 600 }}>
-          Mini Commerce · TiDB Cloud Serverless
+          Mini Commerce
         </p>
         <h2 style={{ margin: 0, fontSize: "28px" }}>
           {tab === "login" ? "เข้าสู่ระบบ" : "สมัครสมาชิกใหม่"}

@@ -72,8 +72,9 @@ export async function uploadImage(file: File): Promise<CloudinaryUploadResult> {
         url: fallbackUrl,
         isCloudinary: false,
       };
-    } catch (err: any) {
-      return { ok: false, error: err?.message || "ไม่สามารถประมวลผลรูปภาพได้" };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "ไม่สามารถประมวลผลรูปภาพได้";
+      return { ok: false, error: msg };
     }
   }
 
@@ -100,10 +101,11 @@ export async function uploadImage(file: File): Promise<CloudinaryUploadResult> {
       url: data.secure_url,
       isCloudinary: true,
     };
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "Network Error";
     return {
       ok: false,
-      error: `ไม่สามารถเชื่อมต่อ Cloudinary ได้: ${err?.message || "Network Error"}`,
+      error: `ไม่สามารถเชื่อมต่อ Cloudinary ได้: ${msg}`,
     };
   }
 }

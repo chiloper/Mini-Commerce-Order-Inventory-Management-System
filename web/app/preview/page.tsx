@@ -15,6 +15,7 @@ import {
   getPromotions,
   updateProductAction,
 } from "../../lib/ecommerce-actions";
+import type { Product, Cart, CartItem, Order, Promotion, MetricCard } from "@/types/ecommerce";
 
 export default function PreviewDualFramePage() {
   const [surface, setSurface] = useState<"store" | "admin">("store");
@@ -23,11 +24,11 @@ export default function PreviewDualFramePage() {
   const [device, setDevice] = useState<"both" | "pc" | "mobile">("both");
 
   // Live data from TiDB Cloud
-  const [products, setProducts] = useState<any[]>([]);
-  const [cart, setCart] = useState<any>({ items: [], totalQuantity: 0, subtotal: 0 });
-  const [orders, setOrders] = useState<any[]>([]);
-  const [promos, setPromos] = useState<any[]>([]);
-  const [stats, setStats] = useState<any[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [cart, setCart] = useState<Cart>({ items: [], totalQuantity: 0, subtotal: 0 });
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [promos, setPromos] = useState<Promotion[]>([]);
+  const [stats, setStats] = useState<MetricCard[]>([]);
   const [cartOpen, setCartOpen] = useState(false);
   const [detailSku, setDetailSku] = useState<string>("SKU-2041");
   const [qty, setQty] = useState(1);
@@ -57,15 +58,17 @@ export default function PreviewDualFramePage() {
     loadAll();
   }, []);
 
-  const formatPrice = (n: number) => `฿${(n || 0).toLocaleString("th-TH")}`;
+  const formatPrice = (n?: number) => `฿${(n || 0).toLocaleString("th-TH")}`;
 
-  const decorate = (it: any) => {
-    const avail = Math.max(0, (it.stock || 0) - (it.held || 0));
+  const decorate = (it: Partial<Product> & { held?: number }) => {
+    const stock = it.stock || 0;
+    const held = it.held || 0;
+    const avail = Math.max(0, stock - held);
     let statusLabel = "พร้อมส่ง";
     let statusCls = "tag tag-accent";
     let barColor = "var(--color-accent)";
 
-    if (it.stock === 0) {
+    if (stock === 0) {
       statusLabel = "หมดชั่วคราว";
       statusCls = "tag tag-neutral";
       barColor = "var(--color-neutral-500)";
@@ -75,8 +78,8 @@ export default function PreviewDualFramePage() {
       barColor = "var(--color-accent-2-500)";
     }
 
-    const barW = Math.min(100, Math.round(((it.stock || 0) / 50) * 100)) + "%";
-    const isLow = it.stock > 0 && avail <= 10;
+    const barW = Math.min(100, Math.round((stock / 50) * 100)) + "%";
+    const isLow = stock > 0 && avail <= 10;
 
     return {
       ...it,
@@ -85,40 +88,44 @@ export default function PreviewDualFramePage() {
       statusCls,
       barColor,
       barW,
-      stockText: it.stock === 0 ? "รอเข้าคลัง" : `เหลือ ${it.stock} ชิ้น`,
-      stockShort: it.stock === 0 ? "รอเข้าคลัง" : `เหลือ ${it.stock}`,
-      stockNum: it.stock,
+      stockText: stock === 0 ? "รอเข้าคลัง" : `เหลือ ${stock} ชิ้น`,
+      stockShort: stock === 0 ? "รอเข้าคลัง" : `เหลือ ${stock}`,
+      stockNum: stock,
       availNum: avail,
-      heldNum: it.held || 0,
-      hasHeld: (it.held || 0) > 0,
-      heldText: `กำลังชำระเงินอยู่ ${it.held || 0} ชิ้น`,
-      heldColor: (it.held || 0) > 0 ? "var(--color-accent-2-700)" : "var(--color-neutral-600)",
-      soldOut: it.stock === 0,
-      addLabel: it.stock === 0 ? "แจ้งเตือนเมื่อมีของ" : "ใส่ตะกร้า",
+      heldNum: held,
+      hasHeld: held > 0,
+      heldText: `กำลังชำระเงินอยู่ ${held} ชิ้น`,
+      heldColor: held > 0 ? "var(--color-accent-2-700)" : "var(--color-neutral-600)",
+      soldOut: stock === 0,
+      addLabel: stock === 0 ? "แจ้งเตือนเมื่อมีของ" : "ใส่ตะกร้า",
       rowBg: isLow ? "var(--color-accent-2-100)" : "transparent",
       rowCardBg: isLow ? "var(--color-accent-2-100)" : "var(--color-surface)",
       onAdd: async () => {
-        await addToCart(it.id, 1);
-        const updated = await getCart();
-        setCart(updated);
-        setCartOpen(true);
+        if (it.id) {
+          await addToCart(it.id, 1);
+          const updated = await getCart();
+          setCart(updated);
+          setCartOpen(true);
+        }
       },
       onOpen: () => {
-        setDetailSku(it.sku);
-        setStorePage("detail");
-        setQty(1);
+        if (it.sku) {
+          setDetailSku(it.sku);
+          setStorePage("detail");
+          setQty(1);
+        }
       },
     };
   };
 
-  const decoratedProducts = products.map(decorate);
-  const bySku: Record<string, any> = {};
+  const decoratedProducts = products.map((p) => decorate(p));
+  const bySku: Record<string, ReturnType<typeof decorate>> = {};
   decoratedProducts.forEach((p) => {
-    bySku[p.sku] = p;
+    if (p.sku) bySku[p.sku] = p;
   });
 
-  const cartLines = (cart.items || []).map((it: any) => {
-    const p = bySku[it.product?.sku] || decorate(it.product || {});
+  const cartLines = (cart.items || []).map((it: CartItem) => {
+    const p = (it.product?.sku && bySku[it.product.sku]) || decorate(it.product || {});
     const avail = p.availNum || p.avail || 0;
     const over = it.quantity > avail;
     return {
@@ -179,7 +186,7 @@ export default function PreviewDualFramePage() {
       promotionCode: promoOk && code ? code.trim().toUpperCase() : undefined,
     });
     if (res.ok) {
-      alert(`ชำระเงินสำเร็จ! บันทึกคำสั่งซื้อ #${res.data?.id} ใน TiDB Cloud เรียบร้อยแล้ว`);
+      alert(`ชำระเงินสำเร็จ! บันทึกคำสั่งซื้อ #${res.data?.id} เรียบร้อยแล้ว`);
       await loadAll();
       setStorePage("list");
       setCartOpen(false);
@@ -269,7 +276,11 @@ export default function PreviewDualFramePage() {
           {tabDefs.map(([key, label]) => (
             <button
               key={key}
-              onClick={() => (surface === "store" ? setStorePage(key as any) : setAdminPage(key as any))}
+              onClick={() =>
+                surface === "store"
+                  ? setStorePage(key as "list" | "detail" | "checkout")
+                  : setAdminPage(key as "dashboard" | "orders" | "products" | "promos")
+              }
               style={{
                 fontFamily: "inherit",
                 fontSize: "13px",
@@ -288,7 +299,7 @@ export default function PreviewDualFramePage() {
         </div>
 
         <span style={{ marginLeft: "auto", fontSize: "12px", color: "var(--color-neutral-700)" }}>
-          ทั้งสองเฟรมเชื่อมต่อ TiDB Cloud จริง · ในตะกร้า {cartCount} ชิ้น
+          เชื่อมต่อระบบฐานข้อมูลจริง · ในตะกร้า {cartCount} ชิ้น
         </span>
       </div>
 
@@ -379,7 +390,7 @@ export default function PreviewDualFramePage() {
                       <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: "var(--space-4)", marginBottom: "var(--space-6)" }}>
                         <div>
                           <p style={{ margin: "0 0 6px", fontSize: "11px", letterSpacing: ".12em", textTransform: "uppercase", color: "var(--color-accent-700)" }}>
-                            คลังสินค้า · ตัดสต็อกเรียลไทม์ (TiDB Cloud)
+                            คลังสินค้า · ตัดสต็อกเรียลไทม์
                           </p>
                           <h2 style={{ margin: 0, fontSize: "32px", lineHeight: 1.1 }}>สินค้าทั้งหมด</h2>
                         </div>
@@ -460,7 +471,7 @@ export default function PreviewDualFramePage() {
 
                       <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
                         <p style={{ margin: 0, fontSize: "11px", letterSpacing: ".12em", textTransform: "uppercase", color: "var(--color-accent-700)" }}>
-                          {d.sku} · {d.category?.name || "อุปกรณ์"}
+                          {d.sku} · {d.category?.name || d.catagory?.name || "อุปกรณ์"}
                         </p>
                         <h2 style={{ margin: 0, fontSize: "34px", lineHeight: 1.1 }}>{d.name}</h2>
                         <p style={{ margin: 0, fontSize: "26px" }}>{formatPrice(d.price)}</p>
@@ -480,7 +491,7 @@ export default function PreviewDualFramePage() {
                         </div>
 
                         <p style={{ margin: 0, fontSize: "14px", lineHeight: 1.6, color: "var(--color-neutral-800)" }}>
-                          {d.description || "สินค้าจริงดึงข้อมูลตรงจากฐานข้อมูล TiDB Cloud Serverless พร้อมระบบหักสต็อกแบบ Atomic Transaction"}
+                          {d.description || "สินค้าจริงดึงข้อมูลตรงจากฐานข้อมูล พร้อมระบบหักสต็อกแบบ Atomic Transaction"}
                         </p>
 
                         <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", marginTop: "var(--space-2)" }}>
@@ -492,10 +503,12 @@ export default function PreviewDualFramePage() {
                           <button
                             className="btn btn-primary"
                             onClick={async () => {
-                              await addToCart(d.id, qty);
-                              const updated = await getCart();
-                              setCart(updated);
-                              setCartOpen(true);
+                              if (d.id) {
+                                await addToCart(d.id, qty);
+                                const updated = await getCart();
+                                setCart(updated);
+                                setCartOpen(true);
+                              }
                             }}
                             disabled={d.soldOut}
                             style={{ flex: 1, height: "44px" }}
@@ -537,7 +550,7 @@ export default function PreviewDualFramePage() {
                           <h3 style={{ margin: 0, fontSize: "15px", letterSpacing: ".08em", textTransform: "uppercase", color: "var(--color-neutral-700)" }}>
                             รายการ {cartCount} ชิ้น
                           </h3>
-                          {cartLines.map((l: any) => (
+                          {cartLines.map((l) => (
                             <div key={l.sku} style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", padding: "var(--space-2) 0", borderBottom: "1px solid color-mix(in srgb, var(--color-text) 8%, transparent)" }}>
                               <div style={{ width: "48px", height: "48px", flex: "none", background: "repeating-linear-gradient(135deg,var(--color-neutral-200) 0 5px,var(--color-neutral-300) 5px 10px)" }} />
                               <span style={{ flex: 1, fontSize: "14px" }}>{l.name}</span>
@@ -596,7 +609,7 @@ export default function PreviewDualFramePage() {
                       {adminNav.map((n) => (
                         <button
                           key={n.key}
-                          onClick={() => setAdminPage(n.key as any)}
+                          onClick={() => setAdminPage(n.key as "dashboard" | "orders" | "products" | "promos")}
                           style={{
                             fontFamily: "inherit",
                             textAlign: "left",
@@ -645,7 +658,7 @@ export default function PreviewDualFramePage() {
                             { label: "ยอดขายวันนี้", value: "฿184,200", note: "เฉลี่ย ฿1,440 ต่อบิล" },
                             { label: "รอจัดส่ง", value: "23", note: "เกิน SLA 2 รายการ" },
                             { label: "SKU ใกล้หมด", value: "3", note: "ต้องเติมภายใน 48 ชม.", noteColor: "var(--color-accent-2-700)" },
-                          ]).map((s: any, idx: number) => (
+                          ]).map((s, idx: number) => (
                             <div key={idx} className="card elev-sm" style={{ gap: "6px" }}>
                               <span className="card-kicker">{s.label}</span>
                               <span style={{ fontFamily: "var(--font-heading)", fontWeight: 600, fontSize: "30px", lineHeight: 1 }}>{s.value}</span>
@@ -697,9 +710,9 @@ export default function PreviewDualFramePage() {
                         <tbody>
                           {orders.map((o) => (
                             <tr key={o.id}>
-                              <td>#{o.id}</td><td>{o.customerName || "ลูกค้าทั่วไป"}</td><td>{o.items?.length || 1} รายการ</td>
-                              <td>{formatPrice(o.totalAmount)}</td>
-                              <td><span className="tag tag-accent">{o.status}</span></td>
+                              <td>#{o.id}</td><td>{o.customerName || o.user?.email || "ลูกค้าทั่วไป"}</td><td>{o.items?.length || 1} รายการ</td>
+                              <td>{formatPrice(o.totalAmount ?? o.total)}</td>
+                              <td><span className="tag tag-accent">{typeof o.status === "boolean" ? (o.status ? "สำเร็จ" : "รอดำเนินการ") : o.status}</span></td>
                               <td style={{ color: "var(--color-accent-700)", fontSize: "13px" }}>ตัดสต็อกแล้ว</td>
                             </tr>
                           ))}
@@ -723,7 +736,7 @@ export default function PreviewDualFramePage() {
                                   <span style={{ fontSize: "13px", minWidth: "52px", textAlign: "right" }}>{p.stockNum} / 50</span>
                                 </div>
                               </td>
-                              <td>{p.availNum}</td>
+                              <td style={{ fontWeight: 600 }}>{p.availNum}</td>
                               <td style={{ color: p.heldColor }}>{p.heldNum}</td>
                               <td><span className={p.statusCls}>{p.statusLabel}</span></td>
                             </tr>
@@ -742,10 +755,10 @@ export default function PreviewDualFramePage() {
                           {promos.map((c) => (
                             <tr key={c.id || c.code}>
                               <td style={{ letterSpacing: ".06em", fontWeight: 600 }}>{c.code}</td>
-                              <td>{c.discountType === "PERCENTAGE" ? `ลด ${c.discountValue}%` : `ลด ฿${c.discountValue}`}</td>
+                              <td>{c.discountType === "PERCENTAGE" || c.type === "percentage" ? `ลด ${c.discountValue || c.value}%` : `ลด ฿${c.discountValue || c.value}`}</td>
                               <td>{c.minOrderAmount ? `ขั้นต่ำ ฿${c.minOrderAmount}` : "ไม่มีขั้นต่ำ"}</td>
                               <td>{c.usedCount || 0} / {c.usageLimit || 1000}</td>
-                              <td><span className="tag tag-accent">{c.isActive ? "ใช้งาน" : "ปิดใช้งาน"}</span></td>
+                              <td><span className="tag tag-accent">{c.isActive !== false ? "ใช้งาน" : "ปิดใช้งาน"}</span></td>
                             </tr>
                           ))}
                         </tbody>
@@ -766,7 +779,7 @@ export default function PreviewDualFramePage() {
                     <button className="btn btn-secondary btn-icon" onClick={() => setCartOpen(false)} aria-label="ปิดตะกร้า">✕</button>
                   </div>
                   <div style={{ flex: 1, overflow: "auto", padding: "0 var(--space-4)" }}>
-                    {cartLines.map((l: any) => (
+                    {cartLines.map((l) => (
                       <div key={l.sku} style={{ display: "flex", gap: "var(--space-3)", padding: "var(--space-3) 0", borderBottom: "1px solid color-mix(in srgb, var(--color-text) 8%, transparent)" }}>
                         <div style={{ width: "64px", height: "64px", flex: "none", background: "repeating-linear-gradient(135deg,var(--color-neutral-200) 0 6px,var(--color-neutral-300) 6px 12px)" }} />
                         <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "5px", minWidth: 0 }}>
@@ -915,7 +928,7 @@ export default function PreviewDualFramePage() {
                     {(stats.length ? stats : [
                       { label: "คำสั่งซื้อวันนี้", value: "128", note: "+12%" },
                       { label: "ยอดขายวันนี้", value: "฿184,200", note: "เฉลี่ย ฿1,440" },
-                    ]).map((s: any, idx: number) => (
+                    ]).map((s, idx: number) => (
                       <div key={idx} className="card elev-sm" style={{ flex: "none", width: "160px", gap: "5px" }}>
                         <span className="card-kicker">{s.label}</span>
                         <span style={{ fontFamily: "var(--font-heading)", fontWeight: 600, fontSize: "24px", lineHeight: 1 }}>{s.value}</span>

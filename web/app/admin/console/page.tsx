@@ -56,8 +56,9 @@ export default function AdminConsoleLoginPage() {
       setUser(res.user);
       router.push("/dashboard");
       router.refresh();
-    } catch (err: any) {
-      setError(err?.message || "เกิดข้อผิดพลาดในการเชื่อมต่อ");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "เกิดข้อผิดพลาดในการเชื่อมต่อ";
+      setError(msg);
       setSubmitting(false);
     }
   };

@@ -80,7 +80,7 @@ export default function SiteHeader() {
                 Mini Commerce · Storefront
               </span>
               <span style={{ fontSize: "11px", letterSpacing: ".1em", color: "var(--color-neutral-700)" }}>
-                ระบบร้านค้าออนไลน์ · TiDB Cloud Serverless
+                ระบบร้านค้าออนไลน์
               </span>
             </div>
             <div style={{ height: "1px", background: "var(--color-text)" }} />
@@ -100,7 +100,7 @@ export default function SiteHeader() {
                   ระบบจัดการคำสั่งซื้อและสต็อกสินค้า
                 </h1>
                 <p style={{ margin: "6px 0 0", fontSize: "14px", maxWidth: "66ch", color: "var(--color-neutral-800)", lineHeight: 1.5 }}>
-                  ระดับสต็อกเป็นแกนของดีไซน์: ทุกการ์ดแสดงป้ายสถานะพร้อมจำนวนคงเหลือจริง ตัดสต็อกเรียลไทม์ผ่าน TiDB Cloud
+                  เลือกซื้อสินค้าคุณภาพ จัดการคำสั่งซื้อรวดเร็ว พร้อมตรวจสอบสต็อกคงเหลือแบบเรียลไทม์
                 </p>
               </div>
 
@@ -239,7 +239,7 @@ export default function SiteHeader() {
                 Mini Commerce · Admin Console
               </span>
               <span style={{ fontSize: "11px", letterSpacing: ".1em", color: "var(--color-neutral-700)" }}>
-                เฉพาะผู้ดูแลระบบ (Restricted Area) · TiDB Cloud
+                เฉพาะผู้ดูแลระบบ (Admin Console)
               </span>
             </div>
             <div style={{ height: "1px", background: "var(--color-divider)" }} />

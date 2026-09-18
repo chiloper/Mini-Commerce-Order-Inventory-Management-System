@@ -2,6 +2,7 @@ import { getCurrentUser } from "../../lib/auth/session";
 import { redirect } from "next/navigation";
 import { getOrders } from "../../lib/ecommerce-actions";
 import Link from "next/link";
+import type { Order, OrderItem } from "@/types/ecommerce";
 
 export default async function AccountPage() {
   const user = await getCurrentUser();
@@ -10,7 +11,7 @@ export default async function AccountPage() {
     redirect("/login");
   }
 
-  const orders = await getOrders();
+  const orders: Order[] = await getOrders();
 
   const getStatusBadge = (statusText: string) => {
     switch (statusText) {
@@ -106,8 +107,8 @@ export default async function AccountPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-100">
-                {orders.map((ord: any) => {
-                  const breakdown = (typeof ord.discountBreakdown === "object" ? ord.discountBreakdown : {}) as any;
+                {orders.map((ord: Order) => {
+                  const breakdown = ord.discountBreakdown || {};
                   return (
                     <tr key={ord.id} className="hover:bg-neutral-50/50">
                       <td className="py-3.5 px-4 font-mono font-semibold text-blue-600">
@@ -123,7 +124,7 @@ export default async function AccountPage() {
                         })}
                       </td>
                       <td className="py-3.5 px-4 text-xs">
-                        {ord.orderItems?.map((it: any) => it.product?.name || `สินค้า #${it.productId}`).join(", ") || "-"}
+                        {ord.orderItems?.map((it: OrderItem) => it.product?.name || `สินค้า #${it.productId}`).join(", ") || "-"}
                       </td>
                       <td className="py-3.5 px-4 font-bold text-neutral-900">
                         ฿{ord.total.toLocaleString("th-TH")}

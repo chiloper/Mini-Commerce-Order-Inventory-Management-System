@@ -4,7 +4,7 @@ import SiteHeader from "./site-header";
 
 export const metadata: Metadata = {
   title: "Mini Commerce - ระบบจัดการคำสั่งซื้อและสต็อกสินค้า",
-  description: "Mini-Commerce Order & Inventory Management System with TiDB Cloud",
+  description: "Mini-Commerce Order & Inventory Management System",
 };
 
 export default function RootLayout({

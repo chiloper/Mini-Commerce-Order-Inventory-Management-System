@@ -10,10 +10,22 @@ import {
   deletePromotionAction,
 } from "../../../lib/ecommerce-actions";
 import { getSessionUserAction } from "../../../lib/auth/actions";
+import type { Promotion } from "@/types/ecommerce";
+
+export interface DecoratedPromotion extends Promotion {
+  usedText: string;
+  barW: string;
+  barColor: string;
+  condText: string;
+  typeText: string;
+  statusLabel: string;
+  statusCls: string;
+  rangeText: string;
+}
 
 export default function AdminPromotionPage() {
   const router = useRouter();
-  const [promos, setPromos] = useState<any[]>([]);
+  const [promos, setPromos] = useState<Promotion[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Modal create
@@ -27,7 +39,7 @@ export default function AdminPromotionPage() {
   const [creating, setCreating] = useState(false);
 
   // Modal edit
-  const [editPromo, setEditPromo] = useState<any | null>(null);
+  const [editPromo, setEditPromo] = useState<Promotion | null>(null);
   const [editCode, setEditCode] = useState("");
   const [editType, setEditType] = useState("PERCENTAGE");
   const [editValue, setEditValue] = useState<number>(0);
@@ -54,7 +66,7 @@ export default function AdminPromotionPage() {
     });
   }, [router]);
 
-  const decorate = (c: any) => {
+  const decorate = (c: Promotion): DecoratedPromotion => {
     const used = c.usedCount || 0;
     const quota = c.usageLimit || 1000;
     const pct = Math.min(100, Math.round((used / quota) * 100));
@@ -78,12 +90,11 @@ export default function AdminPromotionPage() {
     const val = c.value || c.discountValue || 0;
     const minAmt = c.minOrderAmount || 0;
 
-    let condText = minAmt ? `ยอดขั้นต่ำ ฿${Number(minAmt).toLocaleString("th-TH")}` : "ไม่มีขั้นต่ำ";
-    if (c.code === "NEW300") condText = "ลูกค้าใหม่เท่านั้น";
-    if (c.code === "BUNDLE2") condText = "เฉพาะหมวดอุปกรณ์เสริม";
-
-    let typeText = typeStr === "PERCENTAGE" ? `ส่วนลด ${val}%` : `ลด ฿${Number(val).toLocaleString("th-TH")}`;
-    if (c.code === "FREESHIP") typeText = "ส่งฟรี";
+    const condText = minAmt ? `ยอดขั้นต่ำ ฿${Number(minAmt).toLocaleString("th-TH")}` : "ไม่มีขั้นต่ำ";
+    const typeText = typeStr === "PERCENTAGE" ? `ส่วนลด ${val}%` : `ลด ฿${Number(val).toLocaleString("th-TH")}`;
+    const rangeText = c.expiresAt
+      ? `ถึง ${new Date(c.expiresAt).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "2-digit" })}`
+      : "ไม่จำกัดเวลา";
 
     return {
       ...c,
@@ -94,7 +105,7 @@ export default function AdminPromotionPage() {
       typeText,
       statusLabel,
       statusCls,
-      rangeText: "1–31 ส.ค.",
+      rangeText,
     };
   };
 
@@ -138,7 +149,7 @@ export default function AdminPromotionPage() {
   };
 
   // Handle Edit
-  const handleOpenEdit = (c: any) => {
+  const handleOpenEdit = (c: Promotion) => {
     setEditPromo(c);
     setEditCode(c.code);
     setEditType(c.type || c.discountType || "PERCENTAGE");
@@ -187,30 +198,27 @@ export default function AdminPromotionPage() {
   };
 
   return (
-    <div style={{ maxWidth: "1280px", margin: "0 auto", padding: "0 var(--space-4) var(--space-8)" }}>
-      <div
-        style={{
-          display: "flex",
-          minHeight: "840px",
-          background: "var(--color-bg)",
-          borderRadius: "var(--radius-md)",
-          boxShadow: "var(--shadow-md)",
-          overflow: "hidden",
-        }}
-      >
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 pb-12">
+      <div className="flex flex-col md:flex-row min-h-[840px] bg-bg rounded-xl shadow-md overflow-hidden border border-divider">
         <AdminSidebar />
 
-        <main style={{ flex: 1, padding: "var(--space-6)", display: "flex", flexDirection: "column", gap: "var(--space-6)", minWidth: 0 }}>
+        <main className="flex-1 p-6 flex flex-col gap-6 min-w-0">
           {/* Header */}
-          <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: "var(--space-4)", flexWrap: "wrap" }}>
+          <div className="flex items-end justify-between gap-4 flex-wrap">
             <div>
-              <p style={{ margin: "0 0 6px", fontSize: "11px", letterSpacing: ".12em", textTransform: "uppercase", color: "var(--color-accent-700)", fontWeight: 600 }}>
-                {promos.length} แคมเปญ (TiDB Cloud)
+              <p className="text-xs font-semibold uppercase tracking-wider text-accent-700 mb-1">
+                {promos.length} แคมเปญ
               </p>
-              <h2 style={{ margin: 0, fontSize: "30px", lineHeight: 1.1 }}>โปรโมชั่น</h2>
+              <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-text m-0">
+                โปรโมชั่น
+              </h2>
             </div>
-            <div style={{ display: "flex", gap: "var(--space-2)" }}>
-              <button className="btn btn-primary" onClick={handleOpenCreate}>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className="px-4 py-2 text-xs sm:text-sm font-medium rounded-lg bg-neutral-800 text-white hover:bg-neutral-900 transition-colors cursor-pointer shadow-xs"
+                onClick={handleOpenCreate}
+              >
                 + สร้างโปรโมชั่นใหม่
               </button>
             </div>
@@ -218,11 +226,12 @@ export default function AdminPromotionPage() {
 
           {/* Table */}
           {loading ? (
-            <div style={{ padding: "60px 0", textAlign: "center", color: "var(--color-neutral-600)" }}>
-              กำลังโหลดข้อมูลโปรโมชั่นจาก TiDB Cloud...
+            <div className="py-16 text-center text-sm text-neutral-600">
+              กำลังโหลดข้อมูลโปรโมชั่น...
             </div>
           ) : (
-            <table className="table">
+            <div className="border border-divider rounded-xl bg-surface overflow-x-auto shadow-xs">
+              <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr>
                   <th>โค้ด</th>
@@ -261,6 +270,7 @@ export default function AdminPromotionPage() {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
 
           <p style={{ margin: 0, fontSize: "13px", color: "var(--color-neutral-700)", maxWidth: "70ch", lineHeight: 1.6 }}>
@@ -397,7 +407,7 @@ export default function AdminPromotionPage() {
                   className="btn btn-primary"
                   disabled={creating}
                 >
-                  {creating ? "กำลังบันทึก..." : "บันทึกลง TiDB"}
+                  {creating ? "กำลังบันทึกข้อมูล..." : "บันทึกโปรโมชั่น"}
                 </button>
               </div>
             </form>

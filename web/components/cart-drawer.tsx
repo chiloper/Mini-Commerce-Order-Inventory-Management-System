@@ -8,15 +8,15 @@ import {
   removeCartItem,
   validatePromotion,
 } from "../lib/ecommerce-actions";
+import type { Cart, CartItem } from "@/types/ecommerce";
 
-export default function CartDrawer({
-  isOpen,
-  onClose,
-}: {
+interface CartDrawerProps {
   isOpen: boolean;
   onClose: () => void;
-}) {
-  const [cart, setCart] = useState<any>({ items: [], totalQuantity: 0, subtotal: 0 });
+}
+
+export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
+  const [cart, setCart] = useState<Cart>({ items: [], totalQuantity: 0, subtotal: 0 });
   const [loading, setLoading] = useState(false);
   const [promoCode, setPromoCode] = useState("");
   const [promoMsg, setPromoMsg] = useState("");
@@ -67,12 +67,12 @@ export default function CartDrawer({
     const res = await validatePromotion(code, cart.subtotal || 0);
     if (res.ok && res.data?.valid) {
       setPromoOk(true);
-      setDiscount(res.data.discount || 0);
-      setPromoMsg(`ใช้โค้ด ${code} แล้ว — ${res.data.description || "รับส่วนลดพิเศษ"}`);
+      setDiscount(res.data.discountAmount || 0);
+      setPromoMsg(`ใช้โค้ด ${code} แล้ว — ${res.data.promotion?.type === "percentage" ? `ลด ${res.data.promotion.value}%` : `ลด ฿${res.data.promotion?.value}`}`);
     } else {
       setPromoOk(false);
       setDiscount(0);
-      setPromoMsg(res.data?.message || `โค้ด ${code} ใช้ไม่ได้หรือหมดโควตาแล้ว`);
+      setPromoMsg(res.data?.message || res.error || `โค้ด ${code} ใช้ไม่ได้หรือหมดโควตาแล้ว`);
     }
   };
 
@@ -86,181 +86,110 @@ export default function CartDrawer({
   const total = Math.max(0, subtotal - discount + shipping);
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 9999 }}>
+    <div className="fixed inset-0 z-50">
       {/* Backdrop */}
       <div
         onClick={onClose}
-        style={{
-          position: "fixed",
-          inset: 0,
-          background: "color-mix(in srgb, var(--color-neutral-900) 45%, transparent)",
-          backdropFilter: "blur(2px)",
-        }}
+        className="fixed inset-0 bg-black/40 backdrop-blur-[2px] transition-opacity"
       />
 
       {/* Drawer */}
-      <aside
-        style={{
-          position: "fixed",
-          top: 0,
-          right: 0,
-          bottom: 0,
-          width: "440px",
-          maxWidth: "100%",
-          background: "var(--color-bg)",
-          boxShadow: "var(--shadow-lg)",
-          display: "flex",
-          flexDirection: "column",
-          zIndex: 10000,
-        }}
-      >
+      <aside className="fixed top-0 right-0 bottom-0 w-full max-w-md bg-bg shadow-2xl flex flex-col z-50 animate-in slide-in-from-right duration-200">
         {/* Header */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            padding: "var(--space-4)",
-            borderBottom: "1px solid var(--color-text)",
-          }}
-        >
-          <h3 style={{ margin: 0, fontSize: "22px", fontFamily: "var(--font-heading)" }}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-divider">
+          <h3 className="text-xl font-bold tracking-tight text-text">
             ตะกร้าสินค้า · {cart.totalQuantity || 0} ชิ้น
           </h3>
           <button
-            className="btn btn-secondary btn-icon"
             onClick={onClose}
             aria-label="ปิดตะกร้า"
-            style={{ width: "36px", height: "36px" }}
+            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-neutral-200 dark:hover:bg-neutral-800 text-text cursor-pointer transition-colors"
           >
             ✕
           </button>
         </div>
 
         {/* Item List */}
-        <div style={{ flex: 1, overflowY: "auto", padding: "0 var(--space-4)" }}>
+        <div className="flex-1 overflow-y-auto px-5 divide-y divide-divider">
           {items.length === 0 ? (
-            <div style={{ padding: "var(--space-8) 0", textAlign: "center" }}>
-              <p style={{ margin: 0, fontSize: "15px", color: "var(--color-neutral-700)" }}>
+            <div className="py-16 text-center">
+              <p className="text-sm text-neutral-600 mb-4">
                 ยังไม่มีสินค้าในตะกร้า
               </p>
               <button
-                className="btn btn-primary"
                 onClick={onClose}
-                style={{ marginTop: "var(--space-4)" }}
+                className="px-4 py-2 text-sm font-medium rounded-lg bg-neutral-800 text-white hover:bg-neutral-900 cursor-pointer transition-colors"
               >
                 เลือกซื้อสินค้า
               </button>
             </div>
           ) : (
-            items.map((item: any) => {
-              const product = item.product || {};
-              const avail = Math.max(0, (product.stock || 0) - (product.held || 0));
-              const isLow = avail > 0 && avail <= 10;
-              const isOut = avail === 0;
-              const isOver = item.quantity > avail;
-
-              let tagCls = "tag tag-accent";
-              let tagLabel = "พร้อมส่ง";
-              if (isOut) {
-                tagCls = "tag tag-neutral";
-                tagLabel = "หมดชั่วคราว";
-              } else if (isLow) {
-                tagCls = "tag tag-accent-2";
-                tagLabel = "ใกล้หมด";
-              }
+            items.map((item: CartItem) => {
+              const product = item.product;
+              const stock = product?.stock || 0;
+              const isLow = stock > 0 && stock <= 10;
+              const isOut = stock === 0;
 
               return (
-                <div
-                  key={item.id}
-                  style={{
-                    display: "flex",
-                    gap: "var(--space-3)",
-                    padding: "var(--space-3) 0",
-                    borderBottom: "1px solid color-mix(in srgb, var(--color-text) 8%, transparent)",
-                  }}
-                >
-                  <div
-                    className="halftone"
-                    style={{
-                      width: "64px",
-                      height: "64px",
-                      flex: "none",
-                      background:
-                        "repeating-linear-gradient(135deg, var(--color-neutral-200) 0 6px, var(--color-neutral-300) 6px 12px)",
-                      display: "grid",
-                      placeItems: "center",
-                      borderRadius: "var(--radius-sm)",
-                      overflow: "hidden",
-                      position: "relative",
-                    }}
-                  >
-                    {product.imageUrl ? (
+                <div key={item.id} className="flex gap-3.5 py-4">
+                  <div className="relative w-16 h-16 shrink-0 rounded-lg overflow-hidden bg-neutral-200 dark:bg-neutral-800">
+                    {product?.imageUrl ? (
                       <img
                         src={product.imageUrl}
                         alt={product.name}
-                        style={{
-                          position: "absolute",
-                          inset: 0,
-                          width: "100%",
-                          height: "100%",
-                          objectFit: "cover",
-                        }}
+                        className="w-full h-full object-cover"
                       />
                     ) : (
-                      <span
-                        style={{
-                          fontSize: "9px",
-                          letterSpacing: ".1em",
-                          textTransform: "uppercase",
-                          color: "var(--color-neutral-700)",
-                        }}
-                      >
+                      <div className="w-full h-full flex items-center justify-center text-[9px] font-mono text-neutral-600 uppercase">
                         shot
-                      </span>
+                      </div>
                     )}
                   </div>
 
-                  <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "4px", minWidth: 0 }}>
-                    <span style={{ fontSize: "14px", fontWeight: 600 }}>{product.name}</span>
-                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                      <span className={tagCls}>{tagLabel}</span>
-                      <span style={{ fontSize: "12px", color: "var(--color-neutral-700)" }}>
-                        {isOut ? "รอเข้าคลัง" : `เหลือ ${avail} ชิ้น`}
+                  <div className="flex-1 flex flex-col gap-1 min-w-0">
+                    <span className="text-sm font-semibold text-text truncate">
+                      {product?.name || `สินค้า #${item.productId}`}
+                    </span>
+                    <div className="flex items-center gap-2 text-xs">
+                      <span
+                        className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                          isOut
+                            ? "bg-neutral-200 text-neutral-600"
+                            : isLow
+                            ? "bg-rose-100 text-rose-700"
+                            : "bg-emerald-100 text-emerald-700"
+                        }`}
+                      >
+                        {isOut ? "หมดชั่วคราว" : isLow ? "ใกล้หมด" : "พร้อมส่ง"}
+                      </span>
+                      <span className="text-neutral-600">
+                        {isOut ? "รอเข้าคลัง" : `เหลือ ${stock} ชิ้น`}
                       </span>
                     </div>
 
-                    {isOver && (
-                      <span style={{ fontSize: "11px", color: "var(--color-accent-2-700)" }}>
-                        ขายได้เพียง {avail} ชิ้น — ระบบจะปรับจำนวนให้เมื่อกดชำระเงิน
-                      </span>
-                    )}
-
-                    <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginTop: "4px" }}>
+                    <div className="flex items-center gap-2 mt-2">
                       <button
-                        className="btn btn-secondary"
                         onClick={() => handleUpdateQty(item.id, item.quantity, -1)}
                         disabled={loading}
-                        style={{ width: "28px", height: "28px", padding: 0 }}
+                        className="w-7 h-7 flex items-center justify-center rounded border border-divider text-xs font-bold hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-50 cursor-pointer"
                       >
                         −
                       </button>
-                      <span style={{ fontSize: "14px", minWidth: "20px", textAlign: "center" }}>
+                      <span className="text-xs font-medium min-w-[20px] text-center">
                         {item.quantity}
                       </span>
                       <button
-                        className="btn btn-secondary"
                         onClick={() => handleUpdateQty(item.id, item.quantity, 1)}
-                        disabled={loading || item.quantity >= product.stock}
-                        style={{ width: "28px", height: "28px", padding: 0 }}
+                        disabled={loading || (product?.stock !== undefined && item.quantity >= product.stock)}
+                        className="w-7 h-7 flex items-center justify-center rounded border border-divider text-xs font-bold hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-50 cursor-pointer"
                       >
                         +
                       </button>
                     </div>
                   </div>
 
-                  <span style={{ fontSize: "14px", whiteSpace: "nowrap", alignSelf: "center", fontWeight: 500 }}>
-                    {formatPrice((product.price || 0) * item.quantity)}
+                  <span className="text-sm font-bold whitespace-nowrap self-center text-text">
+                    {formatPrice((product?.price || 0) * item.quantity)}
                   </span>
                 </div>
               );
@@ -270,28 +199,19 @@ export default function CartDrawer({
 
         {/* Footer */}
         {items.length > 0 && (
-          <div
-            style={{
-              padding: "var(--space-4)",
-              display: "flex",
-              flexDirection: "column",
-              gap: "var(--space-3)",
-              background: "var(--color-surface)",
-              borderTop: "1px solid var(--color-divider)",
-            }}
-          >
+          <div className="p-5 flex flex-col gap-3 bg-surface border-t border-divider">
             {/* Promo Code Input */}
-            <div style={{ display: "flex", gap: "var(--space-2)" }}>
+            <div className="flex gap-2">
               <input
-                className="input"
                 placeholder="โค้ดโปรโมชั่น (เช่น SAVE10, FREESHIP)"
                 value={promoCode}
                 onChange={(e) => setPromoCode(e.target.value)}
+                className="flex-1 px-3 py-1.5 text-xs sm:text-sm rounded-lg border border-divider bg-bg outline-none focus:ring-1 focus:ring-accent"
               />
               <button
-                className="btn btn-secondary"
+                type="button"
                 onClick={handleApplyPromo}
-                style={{ flex: "none", whiteSpace: "nowrap" }}
+                className="px-3 py-1.5 text-xs font-medium rounded-lg border border-divider hover:bg-bg cursor-pointer whitespace-nowrap"
               >
                 ใช้โค้ด
               </button>
@@ -299,51 +219,38 @@ export default function CartDrawer({
 
             {promoMsg && (
               <p
-                style={{
-                  margin: 0,
-                  fontSize: "12px",
-                  color: promoOk ? "var(--color-accent-700)" : "var(--color-accent-2-700)",
-                }}
+                className={`text-xs m-0 ${
+                  promoOk ? "text-emerald-600 font-medium" : "text-rose-600 font-medium"
+                }`}
               >
                 {promoMsg}
               </p>
             )}
 
             {/* Price Summary */}
-            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "14px" }}>
-                <span>ยอดสินค้า ({cart.totalQuantity} ชิ้น)</span>
-                <span>{formatPrice(subtotal)}</span>
+            <div className="flex flex-col gap-1.5 text-xs sm:text-sm pt-1">
+              <div className="flex justify-between">
+                <span className="text-neutral-600">ยอดสินค้า ({cart.totalQuantity} ชิ้น)</span>
+                <span className="font-medium">{formatPrice(subtotal)}</span>
               </div>
               <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  fontSize: "14px",
-                  color: discount > 0 ? "var(--color-accent-2-700)" : "var(--color-neutral-600)",
-                }}
+                className={`flex justify-between ${
+                  discount > 0 ? "text-emerald-600 font-medium" : "text-neutral-600"
+                }`}
               >
                 <span>{discount > 0 ? "ส่วนลดโปรโมชั่น" : "ส่วนลด"}</span>
                 <span>{discount > 0 ? `−${formatPrice(discount)}` : "—"}</span>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "14px" }}>
-                <span>ค่าจัดส่ง</span>
-                <span>{shipping === 0 ? "ฟรี" : formatPrice(shipping)}</span>
+              <div className="flex justify-between">
+                <span className="text-neutral-600">ค่าจัดส่ง</span>
+                <span className="font-medium">{shipping === 0 ? "ฟรี" : formatPrice(shipping)}</span>
               </div>
             </div>
 
             {/* Total */}
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "baseline",
-                paddingTop: "var(--space-2)",
-                borderTop: "1px solid var(--color-text)",
-              }}
-            >
-              <span style={{ fontSize: "15px", fontWeight: 600 }}>ยอดชำระ</span>
-              <span style={{ fontSize: "24px", fontFamily: "var(--font-heading)", fontWeight: 700 }}>
+            <div className="flex justify-between items-baseline pt-2 border-t border-divider">
+              <span className="text-sm font-semibold">ยอดชำระ</span>
+              <span className="text-2xl font-bold text-text">
                 {formatPrice(total)}
               </span>
             </div>
@@ -352,14 +259,13 @@ export default function CartDrawer({
             <Link
               href="/checkout"
               onClick={onClose}
-              className="btn btn-primary btn-block"
-              style={{ height: "44px", fontSize: "16px" }}
+              className="w-full flex items-center justify-center py-2.5 rounded-lg text-sm font-semibold bg-neutral-800 text-white hover:bg-neutral-900 transition-colors cursor-pointer shadow-sm text-center"
             >
               ไปหน้าชำระเงิน
             </Link>
 
-            <p style={{ margin: 0, fontSize: "11px", color: "var(--color-neutral-700)", lineHeight: 1.6 }}>
-              เมื่อกดชำระเงิน ระบบจะจองสต็อกให้ 10 นาที และตัดสต็อกจริงเมื่อชำระสำเร็จ หากสินค้าถูกซื้อหมดก่อน จะได้รับแจ้งเตือนและปรับจำนวนอัตโนมัติ
+            <p className="text-[10px] text-neutral-500 text-center m-0 leading-relaxed">
+              เมื่อกดชำระเงิน ระบบจะจองสต็อกและตัดสต็อกจริงเมื่อทำรายการสำเร็จ
             </p>
           </div>
         )}

@@ -12,11 +12,12 @@ import {
 } from "../../../lib/ecommerce-actions";
 import { getSessionUserAction } from "../../../lib/auth/actions";
 import { uploadImage, uploadMultipleImages } from "../../../lib/cloudinary";
+import type { Product, Category } from "@/types/ecommerce";
 
 export default function AdminInventoryPage() {
   const router = useRouter();
-  const [products, setProducts] = useState<any[]>([]);
-  const [categories, setCategories] = useState<any[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "low" | "out">("all");
 
@@ -36,7 +37,7 @@ export default function AdminInventoryPage() {
   const [uploadCreateStatus, setUploadCreateStatus] = useState<string>("");
 
   // Edit Product Modal state
-  const [editProduct, setEditProduct] = useState<any | null>(null);
+  const [editProduct, setEditProduct] = useState<Product | null>(null);
   const [editName, setEditName] = useState("");
   const [editPrice, setEditPrice] = useState<number>(0);
   const [editStock, setEditStock] = useState<number>(0);
@@ -51,7 +52,7 @@ export default function AdminInventoryPage() {
   const [uploadEditStatus, setUploadEditStatus] = useState<string>("");
 
   // Quick Refill Modal state
-  const [refillProduct, setRefillProduct] = useState<any | null>(null);
+  const [refillProduct, setRefillProduct] = useState<Product | null>(null);
   const [refillStock, setRefillStock] = useState<number>(0);
   const [refilling, setRefilling] = useState(false);
 
@@ -67,10 +68,10 @@ export default function AdminInventoryPage() {
     if (!files || files.length === 0) return;
 
     setUploading(true);
-    setStatus(`กำลังเตรียมอัปโหลด ${files.length} รูปภาพขึ้น Cloudinary...`);
+    setStatus(`กำลังเตรียมอัปโหลด ${files.length} รูปภาพ...`);
 
     const { urls, errors } = await uploadMultipleImages(files, (done, total) => {
-      setStatus(`กำลังอัปโหลดรูปภาพ (${done}/${total}) ขึ้น Cloudinary...`);
+      setStatus(`กำลังอัปโหลดรูปภาพ (${done}/${total})...`);
     });
 
     if (urls.length > 0) {
@@ -107,7 +108,7 @@ export default function AdminInventoryPage() {
 
   const formatPrice = (n: number) => `฿${(n || 0).toLocaleString("th-TH")}`;
 
-  const decorate = (p: any) => {
+  const decorate = (p: Product) => {
     const avail = Math.max(0, (p.stock || 0) - (p.held || 0));
     const isLow = (p.stock || 0) > 0 && avail <= 10;
     const isOut = (p.stock || 0) === 0;
@@ -198,13 +199,13 @@ export default function AdminInventoryPage() {
   };
 
   // Handle Edit Product
-  const handleOpenEdit = (p: any) => {
+  const handleOpenEdit = (p: Product) => {
     setEditProduct(p);
     setEditName(p.name || "");
     setEditPrice(p.price || 0);
     setEditStock(p.stock || 0);
-    setEditCatId(p.catagoryId || p.category?.id || (categories[0]?.id));
-    setEditDesc(p.description || "");
+    setEditCatId(p.catagoryId || (categories[0]?.id));
+    setEditDesc("");
     const initialImages =
       p.images && Array.isArray(p.images) && p.images.length > 0
         ? p.images
@@ -229,7 +230,6 @@ export default function AdminInventoryPage() {
       price: Number(editPrice),
       stock: Number(editStock),
       catagoryId: editCatId ? Number(editCatId) : undefined,
-      description: editDesc.trim() || undefined,
       imageUrl: editImages[0] || "",
       images: editImages,
     });
@@ -260,7 +260,7 @@ export default function AdminInventoryPage() {
   };
 
   // Handle Quick Refill
-  const handleOpenRefill = (p: any) => {
+  const handleOpenRefill = (p: Product) => {
     setRefillProduct(p);
     setRefillStock(p.stock || 0);
   };
@@ -334,7 +334,7 @@ export default function AdminInventoryPage() {
           {/* Table */}
           {loading ? (
             <div style={{ padding: "60px 0", textAlign: "center", color: "var(--color-neutral-600)" }}>
-              กำลังโหลดข้อมูลสต็อกจาก TiDB Cloud...
+              กำลังโหลดข้อมูลคลังสินค้า...
             </div>
           ) : (
             <table className="table">
@@ -400,7 +400,7 @@ export default function AdminInventoryPage() {
                       </div>
                     </td>
                     <td>{p.avail}</td>
-                    <td style={{ color: p.held > 0 ? "var(--color-accent-2-700)" : "var(--color-neutral-600)", fontWeight: p.held > 0 ? 600 : 400 }}>
+                    <td style={{ color: (p.held || 0) > 0 ? "var(--color-accent-2-700)" : "var(--color-neutral-600)", fontWeight: (p.held || 0) > 0 ? 600 : 400 }}>
                       {p.held || 0}
                     </td>
                     <td>
@@ -735,7 +735,7 @@ export default function AdminInventoryPage() {
                   className="btn btn-primary"
                   disabled={creating || uploadingCreateImage}
                 >
-                  {creating ? "กำลังบันทึกลง TiDB..." : "บันทึกสินค้าใหม่"}
+                  {creating ? "กำลังบันทึกข้อมูล..." : "บันทึกสินค้าใหม่"}
                 </button>
               </div>
             </form>
@@ -1121,7 +1121,7 @@ export default function AdminInventoryPage() {
                 onClick={handleSaveRefill}
                 disabled={refilling}
               >
-                {refilling ? "กำลังบันทึก..." : "บันทึกสต็อกลง TiDB"}
+                {refilling ? "กำลังบันทึกข้อมูล..." : "บันทึกสต็อก"}
               </button>
             </div>
           </div>

@@ -81,8 +81,8 @@ export default function AdminSidebar() {
         >
           สถานะระบบ
         </span>
-        <span style={{ fontSize: "13px" }}>คิวตัดสต็อก: ว่าง</span>
-        <span style={{ fontSize: "12px", color: "var(--color-neutral-700)" }}>ซิงก์ TiDB Cloud สำเร็จ</span>
+        <span style={{ fontSize: "13px" }}>ระบบสต็อก: ปกติ</span>
+        <span style={{ fontSize: "12px", color: "var(--color-neutral-700)" }}>สถานะระบบ: ออนไลน์</span>
       </div>
     </aside>
   );
