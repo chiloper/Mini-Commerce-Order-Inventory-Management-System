@@ -17,6 +17,7 @@ import {
 } from "./dto/order.dto";
 import type {
   DashboardStatsResult,
+  DiscountBreakdownData,
   OrderWithRelations,
   ValidatePromotionResult,
 } from "./types/order.types";
@@ -386,6 +387,17 @@ export class OrderService {
   }
 
   async updateStatus(id: number, dto: UpdateOrderStatusDto): Promise<Order> {
+    const existing = await this.orderRepository.findOrderById(id);
+    if (!existing) {
+      throw new NotFoundException(`ไม่พบคำสั่งซื้อ #${id}`);
+    }
+
+    const breakdown = (existing.discountBreakdown as unknown as DiscountBreakdownData) || {};
+    const currentStatus = (breakdown.statusText || "").toLowerCase();
+    if (currentStatus === "shipped") {
+      throw new BadRequestException("คำสั่งซื้อนี้มีสถานะจัดส่งแล้ว ไม่สามารถปรับเปลี่ยนสถานะได้อีก");
+    }
+
     const updated = await this.orderRepository.updateOrderStatus(id, dto.status);
     if (!updated) {
       throw new NotFoundException(`ไม่พบคำสั่งซื้อ #${id}`);

@@ -235,26 +235,38 @@ export default function AdminPromotionPage() {
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="border-b border-divider text-neutral-700 font-bold tracking-wider uppercase text-[11px] bg-bg/40">
-                    <th className="py-3.5 px-4">โค้ด</th>
+                    <th className="py-3.5 px-4 whitespace-nowrap">โค้ด (จัดการ)</th>
                     <th className="py-3.5 px-4">ประเภท</th>
                     <th className="py-3.5 px-4">เงื่อนไข</th>
                     <th className="py-3.5 px-4">ใช้แล้ว / โควตา</th>
                     <th className="py-3.5 px-4">ช่วงเวลา</th>
                     <th className="py-3.5 px-4">สถานะ</th>
-                    <th className="py-3.5 px-4 text-right">การดำเนินการ</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-divider">
                   {decorated.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="py-16 text-center text-sm font-medium text-neutral-700">
+                      <td colSpan={6} className="py-16 text-center text-sm font-medium text-neutral-700">
                         ยังไม่มีแคมเปญโปรโมชั่น กด "+ สร้างโปรโมชั่นใหม่" เพื่อเริ่มต้น
                       </td>
                     </tr>
                   ) : (
                     decorated.map((c) => (
                       <tr key={c.id || c.code} className="hover:bg-bg/50 transition-colors">
-                        <td className="py-3.5 px-4 font-mono font-bold text-sm tracking-wider text-text">{c.code}</td>
+                        <td className="py-3.5 px-4 font-mono whitespace-nowrap">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEdit(c)}
+                            className="font-mono font-bold text-sm tracking-wider text-accent hover:text-accent-700 hover:underline cursor-pointer inline-flex items-center gap-1.5 group transition-colors text-left"
+                            title="คลิกที่โค้ดเพื่อแก้ไขข้อมูลโปรโมชั่นนี้"
+                          >
+                            <span>{c.code}</span>
+                            <svg className="w-3.5 h-3.5 text-accent/50 group-hover:text-accent transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                            </svg>
+                          </button>
+                        </td>
                         <td className="py-3.5 px-4 font-semibold text-text">{c.typeText}</td>
                         <td className="py-3.5 px-4 text-neutral-700">{c.condText}</td>
                         <td className="py-3.5 px-4">
@@ -270,15 +282,6 @@ export default function AdminPromotionPage() {
                           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${c.statusCls}`}>
                             {c.statusLabel}
                           </span>
-                        </td>
-                        <td className="py-3.5 px-4 text-right">
-                          <button
-                            type="button"
-                            onClick={() => handleOpenEdit(c)}
-                            className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-divider bg-surface hover:bg-bg text-neutral-800 cursor-pointer transition-all shadow-2xs hover:shadow-xs"
-                          >
-                            แก้ไข
-                          </button>
                         </td>
                       </tr>
                     ))

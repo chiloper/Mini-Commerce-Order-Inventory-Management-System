@@ -26,12 +26,18 @@ export interface DecoratedOrder extends Order {
   channel: string;
   isManual: boolean;
   totalAmount: number;
+  subtotal: number;
+  discountAmount: number;
+  shippingFee: number;
+  promoCode: string | null;
+  promoDescription: string | null;
   items: Array<{
     name?: string;
+    sku?: string;
     price?: number;
     quantity?: number;
     productId?: number | null;
-    product?: { name?: string; price?: number };
+    product?: { name?: string; sku?: string; price?: number };
   }>;
   itemsCount: number;
   time: string;
@@ -137,6 +143,33 @@ export default function AdminOrderPage() {
     const items = Array.isArray(b.items) && b.items.length > 0 ? b.items : (o.orderItems || []);
     const itemsCount = items.length || 1;
 
+    const itemsSubtotal = items.reduce(
+      (sum: number, it: { price?: number; quantity?: number; product?: { price?: number } }) =>
+        sum + (it.price ?? it.product?.price ?? 0) * (it.quantity || 1),
+      0
+    );
+    const subtotal = Number(b.subtotal ?? (itemsSubtotal > 0 ? itemsSubtotal : o.total));
+    const shippingFee = Number(
+      b.shippingFee !== undefined
+        ? b.shippingFee
+        : o.total < 1500 && !b.promoCode?.toUpperCase().includes("FREESHIP")
+        ? 50
+        : 0
+    );
+    const promoCode = b.promoCode || o.promotion?.code || null;
+    const discountAmount = Number(
+      b.discountAmount !== undefined
+        ? b.discountAmount
+        : Math.max(0, subtotal + shippingFee - o.total)
+    );
+    const promoDescription =
+      b.promoDescription ||
+      (promoCode
+        ? o.promotion?.type === "percentage"
+          ? `ส่วนลด ${o.promotion.value}% จากยอดสินค้า`
+          : `ส่วนลดจากโค้ด ${promoCode}`
+        : null);
+
     return {
       ...o,
       rawStatus,
@@ -151,6 +184,11 @@ export default function AdminOrderPage() {
       channel,
       isManual,
       totalAmount,
+      subtotal,
+      discountAmount,
+      shippingFee,
+      promoCode,
+      promoDescription,
       items,
       itemsCount,
       time: new Date(o.createdAt || Date.now()).toLocaleTimeString("th-TH", {
@@ -181,6 +219,10 @@ export default function AdminOrderPage() {
 
   const handleUpdateStatus = async (status: string) => {
     if (!selectedOrder) return;
+    if (selectedOrder.rawStatus === "shipped") {
+      alert("คำสั่งซื้อที่จัดส่งแล้วถูกล็อคสถานะ ไม่สามารถปรับเปลี่ยนสถานะได้อีก");
+      return;
+    }
     setUpdating(true);
     await updateOrderStatus(selectedOrder.id, status);
     await loadOrders();
@@ -501,37 +543,47 @@ export default function AdminOrderPage() {
 
           {/* Orders Table */}
           <div className="border border-divider rounded-2xl bg-surface overflow-x-auto shadow-2xs">
-            <table className="w-full text-left text-xs border-collapse min-w-[800px]">
+            <table className="w-full text-left text-xs border-collapse min-w-[760px]">
               <thead>
                 <tr className="border-b border-divider text-neutral-700 font-bold tracking-wider uppercase text-[11px] bg-bg/40">
-                  <th className="py-3.5 px-4 whitespace-nowrap min-w-[130px]">เลขออเดอร์</th>
+                  <th className="py-3.5 px-4 whitespace-nowrap min-w-[140px]">เลขออเดอร์ (จัดการ)</th>
                   <th className="py-3.5 px-4 min-w-[160px]">ลูกค้า</th>
                   <th className="py-3.5 px-4 whitespace-nowrap min-w-[110px]">ยอดชำระ</th>
                   <th className="py-3.5 px-4 whitespace-nowrap min-w-[130px]">วิธีชำระเงิน</th>
                   <th className="py-3.5 px-4 whitespace-nowrap min-w-[140px]">สถานะ & สต็อก</th>
                   <th className="py-3.5 px-4 whitespace-nowrap min-w-[110px]">เวลา</th>
-                  <th className="py-3.5 px-4 text-right whitespace-nowrap min-w-[80px]">การกระทำ</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-divider">
                 {loading ? (
                   <tr>
-                    <td colSpan={7} className="py-16 text-center text-sm font-medium text-neutral-700">
+                    <td colSpan={6} className="py-16 text-center text-sm font-medium text-neutral-700">
                       กำลังโหลดข้อมูลคำสั่งซื้อ...
                     </td>
                   </tr>
                 ) : filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="py-16 text-center text-sm font-medium text-neutral-700">
+                    <td colSpan={6} className="py-16 text-center text-sm font-medium text-neutral-700">
                       ไม่พบรายการคำสั่งซื้อ
                     </td>
                   </tr>
                 ) : (
                   filtered.map((o: DecoratedOrder) => (
                     <tr key={o.id} className="hover:bg-bg/50 transition-colors">
-                      {/* เลขออเดอร์ + ป้ายช่องทาง */}
+                      {/* เลขออเดอร์ (คลิกเพื่อเปิดจัดการ) + ป้ายช่องทาง */}
                       <td className="py-3.5 px-4 font-mono">
-                        <div className="font-bold text-text text-sm">#{o.id}</div>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedOrder(o)}
+                          className="font-mono font-bold text-accent hover:text-accent-700 hover:underline cursor-pointer inline-flex items-center gap-1.5 group transition-colors text-sm text-left"
+                          title="คลิกที่เลขออเดอร์เพื่อดูรายละเอียดและจัดการ"
+                        >
+                          <span>#{o.id}</span>
+                          <svg className="w-3.5 h-3.5 text-accent/50 group-hover:text-accent transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                          </svg>
+                        </button>
                         <div className="mt-1">
                           {o.isManual ? (
                             <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold bg-purple-50 text-purple-700 border border-purple-200 whitespace-nowrap shadow-2xs">
@@ -581,17 +633,6 @@ export default function AdminOrderPage() {
                         <div className="font-medium text-xs text-text">{o.dateStr}</div>
                         <div className="text-[10px] text-neutral-500 mt-0.5">{o.time}</div>
                       </td>
-
-                      {/* การกระทำ */}
-                      <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                        <button
-                          type="button"
-                          onClick={() => setSelectedOrder(o)}
-                          className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-divider bg-surface hover:bg-bg text-neutral-800 cursor-pointer transition-all shadow-2xs hover:shadow-xs"
-                        >
-                          จัดการ
-                        </button>
-                      </td>
                     </tr>
                   ))
                 )}
@@ -627,65 +668,167 @@ export default function AdminOrderPage() {
                 </div>
 
                 <div className="flex flex-col gap-3 text-xs sm:text-sm">
-                  <div className="p-3.5 rounded-xl bg-bg border border-divider flex flex-col gap-2">
-                    <p className="m-0 text-neutral-800">
-                      ลูกค้า: <strong className="font-bold text-text">{selectedOrder.customerName}</strong> (โทร {selectedOrder.phone})
-                    </p>
-                    <p className="m-0 text-neutral-800">
-                      ช่องทางการขาย: <strong className="font-semibold text-accent-700">{selectedOrder.channel}</strong>
-                    </p>
+                  {/* Customer & Delivery Card */}
+                  <div className="p-3.5 rounded-xl bg-bg border border-divider flex flex-col gap-2 text-xs">
+                    <div className="flex justify-between items-start gap-2">
+                      <p className="m-0 text-neutral-800">
+                        ลูกค้า: <strong className="font-bold text-text">{selectedOrder.customerName}</strong> (โทร {selectedOrder.phone})
+                      </p>
+                      <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-accent/10 text-accent-700 border border-accent/20 whitespace-nowrap shrink-0">
+                        {selectedOrder.channel}
+                      </span>
+                    </div>
                     <p className="m-0 text-neutral-800">
                       ที่อยู่จัดส่ง: <span className="font-medium text-text">{selectedOrder.shippingAddress || "-"}</span>
                     </p>
                     <p className="m-0 text-neutral-800">
-                      ยอดชำระ: <strong className="font-bold text-text text-base">{formatPrice(selectedOrder.totalAmount)}</strong> ({selectedOrder.paymentMethod})
+                      วิธีชำระเงิน: <strong className="font-semibold text-text">{selectedOrder.paymentMethod}</strong>
                     </p>
                   </div>
 
+                  {/* Items List Card */}
                   {selectedOrder.items && selectedOrder.items.length > 0 && (
                     <div className="p-3.5 bg-bg rounded-xl text-xs flex flex-col gap-2 border border-divider">
-                      <span className="font-bold text-text block">รายการสินค้า:</span>
+                      <span className="font-bold text-text block pb-1 border-b border-divider">
+                        รายการสินค้า ({selectedOrder.itemsCount} รายการ):
+                      </span>
                       <div className="divide-y divide-divider/70">
-                        {selectedOrder.items.map((it, idx: number) => (
-                          <div key={idx} className="flex justify-between py-1.5 text-neutral-800">
-                            <span className="font-medium">• {it.name || it.product?.name || `สินค้า #${it.productId}`} × {it.quantity || 1}</span>
-                            <span className="font-bold text-text">{formatPrice((it.price || it.product?.price || 0) * (it.quantity || 1))}</span>
-                          </div>
-                        ))}
+                        {selectedOrder.items.map((it, idx: number) => {
+                          const name = it.name || it.product?.name || `สินค้า #${it.productId}`;
+                          const qty = it.quantity || 1;
+                          const price = it.price ?? it.product?.price ?? 0;
+                          return (
+                            <div key={idx} className="flex justify-between items-center py-1.5 text-neutral-800">
+                              <span className="font-medium truncate mr-2">
+                                • {name} <span className="text-neutral-500 font-mono text-[11px]">({qty} × {formatPrice(price)})</span>
+                              </span>
+                              <span className="font-bold text-text shrink-0">{formatPrice(price * qty)}</span>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
 
+                  {/* Financial & Promotion Breakdown Card */}
+                  <div className="p-3.5 bg-bg rounded-xl text-xs flex flex-col gap-2 border border-divider">
+                    <span className="font-bold text-text block pb-1 border-b border-divider">
+                      สรุปยอดเงินและส่วนลด:
+                    </span>
+                    <div className="flex justify-between text-neutral-800">
+                      <span>ยอดรวมสินค้า</span>
+                      <span className="font-semibold text-text">{formatPrice(selectedOrder.subtotal)}</span>
+                    </div>
+
+                    {/* Promotion / Coupon Info */}
+                    <div className="flex justify-between items-center text-neutral-800">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span>โปรโมชั่นคูปอง:</span>
+                        {selectedOrder.promoCode ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-mono font-bold text-[11px] bg-emerald-100 text-emerald-800 border border-emerald-300">
+                            <span>🏷️</span>
+                            <span>{selectedOrder.promoCode}</span>
+                          </span>
+                        ) : (
+                          <span className="text-neutral-500 font-normal">ไม่มี</span>
+                        )}
+                      </div>
+                      {selectedOrder.discountAmount > 0 ? (
+                        <span className="font-bold text-emerald-700">
+                          −{formatPrice(selectedOrder.discountAmount)}
+                        </span>
+                      ) : (
+                        <span className="text-neutral-500 font-mono">฿0</span>
+                      )}
+                    </div>
+
+                    {/* Promo Description */}
+                    {selectedOrder.promoDescription && (
+                      <p className="text-[11px] text-emerald-800 font-medium m-0 pl-1">
+                        ↳ {selectedOrder.promoDescription}
+                      </p>
+                    )}
+
+                    {/* Shipping Fee */}
+                    <div className="flex justify-between items-center text-neutral-800">
+                      <span>ค่าจัดส่ง:</span>
+                      <span className="font-semibold text-text">
+                        {selectedOrder.shippingFee === 0 ? (
+                          <span className="text-emerald-700 font-bold">ฟรี (฿0)</span>
+                        ) : (
+                          formatPrice(selectedOrder.shippingFee)
+                        )}
+                      </span>
+                    </div>
+
+                    {/* Net Total Amount */}
+                    <div className="flex justify-between items-baseline pt-2 border-t border-divider text-sm">
+                      <span className="font-bold text-text">ยอดชำระสุทธิ:</span>
+                      <span className="font-extrabold text-base text-text">
+                        {formatPrice(selectedOrder.totalAmount)}
+                      </span>
+                    </div>
+                  </div>
+
                   <div className="flex flex-col gap-2 pt-2 border-t border-divider">
                     <label className="text-xs font-bold text-neutral-800">
-                      ปรับสถานะคำสั่งซื้อ:
+                      สถานะคำสั่งซื้อ:
                     </label>
-                    <div className="flex gap-2 flex-wrap">
-                      <button
-                        type="button"
-                        onClick={() => handleUpdateStatus("processing")}
-                        disabled={updating}
-                        className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-sky-400 bg-sky-50 text-sky-900 hover:bg-sky-100 active:bg-sky-200 cursor-pointer disabled:opacity-50 transition-colors shadow-2xs"
-                      >
-                        กำลังจัดของ
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleUpdateStatus("shipped")}
-                        disabled={updating}
-                        className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-emerald-400 bg-emerald-50 text-emerald-900 hover:bg-emerald-100 active:bg-emerald-200 cursor-pointer disabled:opacity-50 transition-colors shadow-2xs"
-                      >
-                        จัดส่งแล้ว
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleUpdateStatus("cancelled")}
-                        disabled={updating}
-                        className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-rose-400 bg-rose-50 text-rose-900 hover:bg-rose-100 active:bg-rose-200 cursor-pointer disabled:opacity-50 transition-colors shadow-2xs"
-                      >
-                        ยกเลิก (คืนสต็อก)
-                      </button>
-                    </div>
+                    {selectedOrder.rawStatus === "shipped" ? (
+                      <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-300 flex items-center justify-between gap-3 shadow-2xs">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span className="w-6 h-6 rounded-full bg-emerald-200 text-emerald-800 flex items-center justify-center text-xs font-bold shrink-0">
+                            ✓
+                          </span>
+                          <div>
+                            <p className="m-0 font-bold text-xs text-emerald-950">
+                              จัดส่งสินค้าเรียบร้อยแล้ว
+                            </p>
+                            <p className="m-0 text-[11px] text-emerald-800 font-medium">
+                              คำสั่งซื้อที่จัดส่งแล้วถูกล็อคสถานะ ไม่สามารถปรับเปลี่ยนหรือยกเลิกได้
+                            </p>
+                          </div>
+                        </div>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 shrink-0 whitespace-nowrap">
+                          ล็อคสถานะ
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="flex gap-2 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateStatus("processing")}
+                          disabled={updating || selectedOrder.rawStatus === "processing"}
+                          className={`px-3.5 py-2 text-xs font-semibold rounded-xl border transition-colors shadow-2xs ${
+                            selectedOrder.rawStatus === "processing"
+                              ? "border-sky-400 bg-sky-200/60 text-sky-950 font-bold cursor-default"
+                              : "border-sky-400 bg-sky-50 text-sky-900 hover:bg-sky-100 active:bg-sky-200 cursor-pointer disabled:opacity-50"
+                          }`}
+                        >
+                          กำลังจัดของ {selectedOrder.rawStatus === "processing" && "✓"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateStatus("shipped")}
+                          disabled={updating}
+                          className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-emerald-400 bg-emerald-50 text-emerald-900 hover:bg-emerald-100 active:bg-emerald-200 cursor-pointer disabled:opacity-50 transition-colors shadow-2xs"
+                        >
+                          จัดส่งแล้ว
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateStatus("cancelled")}
+                          disabled={updating || selectedOrder.rawStatus === "cancelled"}
+                          className={`px-3.5 py-2 text-xs font-semibold rounded-xl border transition-colors shadow-2xs ${
+                            selectedOrder.rawStatus === "cancelled"
+                              ? "border-rose-400 bg-rose-200/60 text-rose-950 font-bold cursor-default"
+                              : "border-rose-400 bg-rose-50 text-rose-900 hover:bg-rose-100 active:bg-rose-200 cursor-pointer disabled:opacity-50"
+                          }`}
+                        >
+                          ยกเลิก (คืนสต็อก) {selectedOrder.rawStatus === "cancelled" && "✓"}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
