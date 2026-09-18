@@ -9,6 +9,8 @@ export interface CartItemDetail {
   stock: number;
   isOverStock: boolean;
   category: string;
+  imageUrl?: string | null;
+  images?: string | null;
 }
 
 export interface CartSummary {

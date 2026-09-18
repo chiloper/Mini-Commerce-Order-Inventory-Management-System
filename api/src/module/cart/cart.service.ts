@@ -30,6 +30,8 @@ export class CartService {
         stock: availableStock,
         isOverStock,
         category: product?.catagory?.name ?? "",
+        imageUrl: product?.imageUrl ?? null,
+        images: product?.images ?? null,
       };
     });
 

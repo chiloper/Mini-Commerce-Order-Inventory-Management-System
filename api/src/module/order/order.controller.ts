@@ -11,6 +11,7 @@ import {
 import { OrderService } from "./order.service";
 import {
   CheckoutDto,
+  CreateManualOrderDto,
   CreatePromotionDto,
   UpdateOrderStatusDto,
   UpdatePromotionDto,
@@ -37,6 +38,15 @@ export class OrderController {
     @Body() dto: CheckoutDto
   ): Promise<unknown> {
     return this.orderService.checkout(user.id, dto);
+  }
+
+  @Roles("admin")
+  @Post("admin/orders")
+  createManualOrder(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: CreateManualOrderDto
+  ): Promise<unknown> {
+    return this.orderService.createManualOrder(user.id, dto);
   }
 
   @Get("orders")

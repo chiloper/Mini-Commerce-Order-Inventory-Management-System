@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { getSessionUserAction, logoutAction } from "../lib/auth/actions";
 import { PublicUser } from "../lib/auth/type";
 import { getCart } from "../lib/ecommerce-actions";
@@ -14,6 +14,8 @@ export default function SiteHeader() {
   const [user, setUser] = useState<PublicUser | null>(null);
   const [cartCount, setCartCount] = useState<number>(0);
   const [cartDrawerOpen, setCartDrawerOpen] = useState<boolean>(false);
+  const [accountMenuOpen, setAccountMenuOpen] = useState<boolean>(false);
+  const accountMenuRef = useRef<HTMLDivElement>(null);
 
   const isAdminPath =
     pathname.startsWith("/admin") ||
@@ -21,6 +23,8 @@ export default function SiteHeader() {
     pathname.startsWith("/inventory") ||
     pathname.startsWith("/order") ||
     pathname.startsWith("/promotion");
+
+  const displayName = user?.email ? user.email.split("@")[0] : "";
 
   const fetchCartCount = async () => {
     try {
@@ -47,9 +51,33 @@ export default function SiteHeader() {
     };
   }, [pathname]);
 
+  // Click outside and escape key listener for account popover
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (accountMenuRef.current && !accountMenuRef.current.contains(event.target as Node)) {
+        setAccountMenuOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setAccountMenuOpen(false);
+      }
+    };
+
+    if (accountMenuOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener("keydown", handleKeyDown);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [accountMenuOpen]);
+
   const handleLogout = async () => {
     await logoutAction();
     setUser(null);
+    setAccountMenuOpen(false);
     if (isAdminPath) {
       router.push("/admin/console");
     } else {
@@ -60,295 +88,269 @@ export default function SiteHeader() {
 
   return (
     <>
-      <div style={{ padding: "24px 32px 16px", maxWidth: "1280px", margin: "0 auto", width: "100%" }}>
-        {/* ========================================================================= */}
-        {/* STOREFRONT HEADER (Shown only when in Storefront)                        */}
-        {/* ========================================================================= */}
-        {!isAdminPath && (
-          <header style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
-            <div style={{ height: "4px", background: "var(--color-text)" }} />
-            <div
-              style={{
-                display: "flex",
-                alignItems: "baseline",
-                justifyContent: "space-between",
-                gap: "var(--space-4)",
-                padding: "2px 0",
-              }}
-            >
-              <span style={{ fontSize: "11px", letterSpacing: ".16em", textTransform: "uppercase", fontWeight: 600 }}>
-                Mini Commerce · Storefront
-              </span>
-              <span style={{ fontSize: "11px", letterSpacing: ".1em", color: "var(--color-neutral-700)" }}>
-                ระบบร้านค้าออนไลน์
-              </span>
-            </div>
-            <div style={{ height: "1px", background: "var(--color-text)" }} />
-
-            <div
-              style={{
-                display: "flex",
-                alignItems: "flex-start",
-                justifyContent: "space-between",
-                flexWrap: "wrap",
-                gap: "var(--space-3)",
-                marginTop: "var(--space-2)",
-              }}
-            >
-              <div>
-                <h1 style={{ margin: 0, fontSize: "38px", lineHeight: 1.08, maxWidth: "20ch" }}>
-                  ระบบจัดการคำสั่งซื้อและสต็อกสินค้า
-                </h1>
-                <p style={{ margin: "6px 0 0", fontSize: "14px", maxWidth: "66ch", color: "var(--color-neutral-800)", lineHeight: 1.5 }}>
-                  เลือกซื้อสินค้าคุณภาพ จัดการคำสั่งซื้อรวดเร็ว พร้อมตรวจสอบสต็อกคงเหลือแบบเรียลไทม์
-                </p>
-              </div>
-
-              {/* User Account / Auth */}
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "var(--space-2)",
-                  fontSize: "13px",
-                  background: "var(--color-surface)",
-                  padding: "6px 12px",
-                  borderRadius: "var(--radius-md)",
-                  border: "1px solid var(--color-divider)",
-                }}
-              >
-                {user ? (
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                    <span style={{ color: "var(--color-neutral-700)" }}>
-                      ผู้ใช้: <strong style={{ color: "var(--color-text)" }}>{user.email}</strong>
-                    </span>
-                    {user.role === "admin" && (
-                      <Link
-                        href="/admin/console"
-                        style={{
-                          fontSize: "11px",
-                          padding: "2px 6px",
-                          background: "var(--color-accent-100)",
-                          color: "var(--color-accent-800)",
-                          borderRadius: "var(--radius-sm)",
-                          fontWeight: 600,
-                        }}
-                      >
-                        เข้าสู่หลังร้าน
-                      </Link>
-                    )}
-                    <button
-                      onClick={handleLogout}
-                      className="btn btn-ghost"
-                      style={{ fontSize: "12px", padding: "0 4px" }}
-                    >
-                      ออกจากระบบ
-                    </button>
-                  </div>
-                ) : (
-                  <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                    <span style={{ color: "var(--color-neutral-600)" }}>ยังไม่ได้เข้าสู่ระบบ</span>
-                    <Link
-                      href="/login"
-                      className="btn btn-primary"
-                      style={{ padding: "4px 10px", fontSize: "12px" }}
-                    >
-                      เข้าสู่ระบบ
-                    </Link>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Storefront Navigation bar (NO Admin tabs) */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "var(--space-3)",
-                padding: "var(--space-3) 0",
-                borderTop: "1px solid var(--color-divider)",
-                borderBottom: "1px solid var(--color-divider)",
-                marginTop: "var(--space-2)",
-              }}
-            >
+      {/* ========================================================================= */}
+      {/* STOREFRONT HEADER (Full-Bleed 100% Width Sticky Header)                  */}
+      {/* ========================================================================= */}
+      {!isAdminPath && (
+        <header className="w-full border-b border-divider bg-surface/90 backdrop-blur-md sticky top-0 z-40">
+          <div className="w-full px-3.5 sm:px-6 lg:px-8 2xl:px-12 py-2.5 sm:py-3 flex items-center justify-between gap-2 sm:gap-4">
+            {/* Left: Brand & Main Navigation */}
+            <div className="flex items-center gap-3 sm:gap-6 min-w-0">
               <Link
                 href="/"
-                className="btn"
-                style={{
-                  fontSize: "14px",
-                  padding: "6px 14px",
-                  border: "1px solid var(--color-divider)",
-                  background: pathname === "/" || pathname === "/list" ? "var(--color-accent)" : "transparent",
-                  color: pathname === "/" || pathname === "/list" ? "#ffffff" : "var(--color-text)",
-                  fontWeight: pathname === "/" || pathname === "/list" ? 600 : 400,
-                }}
+                className="text-base sm:text-xl font-bold tracking-tight text-text hover:text-accent transition-colors flex items-center gap-1.5 shrink-0"
+              >
+                <span>Mini Commerce</span>
+              </Link>
+              <Link
+                href="/list"
+                className={`text-xs sm:text-sm font-medium transition-colors hidden sm:inline-block ${
+                  pathname === "/" || pathname === "/list"
+                    ? "text-accent font-semibold"
+                    : "text-neutral-800 hover:text-text"
+                }`}
               >
                 สินค้าทั้งหมด
               </Link>
-              <Link
-                href="/checkout"
-                className="btn"
-                style={{
-                  fontSize: "14px",
-                  padding: "6px 14px",
-                  border: "1px solid var(--color-divider)",
-                  background: pathname === "/checkout" ? "var(--color-accent)" : "transparent",
-                  color: pathname === "/checkout" ? "#ffffff" : "var(--color-text)",
-                  fontWeight: pathname === "/checkout" ? 600 : 400,
-                }}
-              >
-                ชำระเงิน
-              </Link>
+            </div>
+
+            {/* Right: Auth User Popover & Cart Button */}
+            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+              {user ? (
+                <div className="relative" ref={accountMenuRef}>
+                  <button
+                    type="button"
+                    onClick={() => setAccountMenuOpen((prev) => !prev)}
+                    className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-lg border border-divider bg-surface hover:bg-bg text-text transition-all cursor-pointer text-xs sm:text-sm font-medium shadow-xs select-none"
+                    aria-expanded={accountMenuOpen}
+                    aria-haspopup="true"
+                  >
+                    {/* User Person Icon Avatar */}
+                    <div className="w-6 h-6 rounded-full bg-accent-100 text-accent-800 flex items-center justify-center shrink-0 text-xs font-bold">
+                      <svg
+                        className="w-3.5 h-3.5"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.2"
+                      >
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                        <circle cx="12" cy="7" r="4" />
+                      </svg>
+                    </div>
+                    {/* Display name only */}
+                    <span className="font-semibold text-text max-w-[75px] sm:max-w-[140px] truncate hidden xs:inline sm:inline">
+                      {displayName}
+                    </span>
+                    <svg
+                      className={`w-3.5 h-3.5 text-neutral-700 transition-transform duration-200 ${
+                        accountMenuOpen ? "rotate-180" : ""
+                      }`}
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <polyline points="6 9 12 15 18 9" />
+                    </svg>
+                  </button>
+
+                  {/* Account Popover Menu */}
+                  {accountMenuOpen && (
+                    <div className="absolute right-0 mt-2 w-64 sm:w-72 max-w-[calc(100vw-24px)] rounded-2xl border border-divider bg-surface shadow-xl py-3 px-3 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                      {/* Account Summary */}
+                      <div className="flex items-center gap-3 pb-3 border-b border-divider px-1">
+                        <div className="w-10 h-10 rounded-full bg-accent text-white flex items-center justify-center font-bold text-base shadow-xs shrink-0">
+                          {displayName.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-sm text-text truncate">
+                              {displayName}
+                            </span>
+                            <span
+                              className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
+                                user.role === "admin"
+                                  ? "bg-purple-100 text-purple-800"
+                                  : "bg-emerald-100 text-emerald-800"
+                              }`}
+                            >
+                              {user.role === "admin" ? "ผู้ดูแลระบบ" : "สมาชิก"}
+                            </span>
+                          </div>
+                          <p className="text-xs text-neutral-800 font-medium truncate" title={user.email}>
+                            {user.email}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Menu Links */}
+                      <div className="py-2 flex flex-col gap-1">
+                        <Link
+                          href="/account"
+                          onClick={() => setAccountMenuOpen(false)}
+                          className="flex items-center gap-2.5 px-3 py-2 text-xs sm:text-sm font-medium text-text hover:bg-bg rounded-xl transition-colors"
+                        >
+                          <svg
+                            className="w-4 h-4 text-neutral-700"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                          >
+                            <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+                            <line x1="3" y1="6" x2="21" y2="6" />
+                            <path d="M16 10a4 4 0 0 1-8 0" />
+                          </svg>
+                          <span>ประวัติคำสั่งซื้อของฉัน</span>
+                        </Link>
+
+                        {user.role === "admin" && (
+                          <Link
+                            href="/admin/console"
+                            onClick={() => setAccountMenuOpen(false)}
+                            className="flex items-center gap-2.5 px-3 py-2 text-xs sm:text-sm font-medium text-purple-800 hover:bg-purple-50 rounded-xl transition-colors"
+                          >
+                            <svg
+                              className="w-4 h-4 text-purple-700"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                            >
+                              <rect x="3" y="3" width="7" height="7" />
+                              <rect x="14" y="3" width="7" height="7" />
+                              <rect x="14" y="14" width="7" height="7" />
+                              <rect x="3" y="14" width="7" height="7" />
+                            </svg>
+                            <span>ระบบจัดการหลังร้าน (Admin)</span>
+                          </Link>
+                        )}
+                      </div>
+
+                      {/* Sign Out Button */}
+                      <div className="pt-2 border-t border-divider">
+                        <button
+                          type="button"
+                          onClick={handleLogout}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 text-xs sm:text-sm font-medium text-rose-700 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
+                        >
+                          <svg
+                            className="w-4 h-4 text-rose-600"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                          >
+                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                            <polyline points="16 17 21 12 16 7" />
+                            <line x1="21" y1="12" x2="9" y2="12" />
+                          </svg>
+                          <span>ออกจากระบบ</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <Link
+                  href="/login"
+                  className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 py-1.5 text-xs sm:text-sm font-medium rounded-lg border border-divider hover:bg-bg text-text transition-colors"
+                >
+                  <svg
+                    className="w-4 h-4 text-neutral-700"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                    <circle cx="12" cy="7" r="4" />
+                  </svg>
+                  <span>เข้าสู่ระบบ</span>
+                </Link>
+              )}
 
               {/* Cart Drawer Button */}
-              <div style={{ marginLeft: "auto" }}>
-                <button
-                  onClick={() => setCartDrawerOpen(true)}
-                  className="btn btn-primary"
-                  style={{ height: "36px", fontSize: "13px" }}
-                >
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <path d="M3 4h2.5l2.2 10.5h9.6L19 7H6" />
-                    <circle cx="9" cy="19" r="1.4" />
-                    <circle cx="17" cy="19" r="1.4" />
-                  </svg>
-                  ตะกร้า · {cartCount}
-                </button>
-              </div>
+              <button
+                onClick={() => setCartDrawerOpen(true)}
+                className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-semibold bg-accent text-white hover:bg-accent-600 active:bg-accent-700 cursor-pointer shadow-xs transition-colors"
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M3 4h2.5l2.2 10.5h9.6L19 7H6" />
+                  <circle cx="9" cy="19" r="1.4" />
+                  <circle cx="17" cy="19" r="1.4" />
+                </svg>
+                <span className="hidden xs:inline sm:inline">ตะกร้า</span>
+                <span className="px-1.5 py-0.2 bg-white/25 text-white rounded-full text-xs font-bold">
+                  {cartCount}
+                </span>
+              </button>
             </div>
-          </header>
-        )}
+          </div>
+        </header>
+      )}
 
-        {/* ========================================================================= */}
-        {/* ADMIN HEADER (Shown only when in Admin Console)                           */}
-        {/* ========================================================================= */}
-        {isAdminPath && (
-          <header style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
-            <div style={{ height: "4px", background: "var(--color-accent-2)" }} />
-            <div
-              style={{
-                display: "flex",
-                alignItems: "baseline",
-                justifyContent: "space-between",
-                gap: "var(--space-4)",
-                padding: "2px 0",
-              }}
-            >
-              <span style={{ fontSize: "11px", letterSpacing: ".16em", textTransform: "uppercase", fontWeight: 700, color: "var(--color-accent-2-700)" }}>
-                Mini Commerce · Admin Console
-              </span>
-              <span style={{ fontSize: "11px", letterSpacing: ".1em", color: "var(--color-neutral-700)" }}>
-                เฉพาะผู้ดูแลระบบ (Admin Console)
-              </span>
-            </div>
-            <div style={{ height: "1px", background: "var(--color-divider)" }} />
+      {/* ========================================================================= */}
+      {/* ADMIN HEADER (Shown only when in Admin Console)                           */}
+      {/* ========================================================================= */}
+      {/* ========================================================================= */}
+      {/* ADMIN HEADER (Shown only when in Admin Console)                           */}
+      {/* ========================================================================= */}
+      {isAdminPath && (
+        <div className="w-full border-b border-divider bg-surface sticky top-0 z-40 shadow-xs">
+          {/* Top Magenta Accent Line indicating Admin Mode */}
+          <div className="h-1 bg-accent-2 w-full" />
 
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                flexWrap: "wrap",
-                gap: "var(--space-3)",
-                padding: "var(--space-2) 0",
-              }}
-            >
+          <div className="w-full px-4 sm:px-6 lg:px-8 2xl:px-12 py-3">
+            {/* Top row: Title and Admin user actions */}
+            <div className="flex items-center justify-between gap-4 flex-wrap">
               <div>
-                <h2 style={{ margin: 0, fontSize: "24px", lineHeight: 1.1 }}>
+                <div className="flex items-center gap-2 mb-0.5">
+                  <span className="text-[11px] uppercase tracking-wider font-bold text-accent-2 font-mono">
+                    Mini Commerce · Admin Console
+                  </span>
+                  <span className="text-[10px] bg-accent-2/10 text-accent-2 font-bold px-1.5 py-0.2 rounded border border-accent-2/20">
+                    Restricted
+                  </span>
+                </div>
+                <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-text m-0">
                   ระบบจัดการหลังร้านและคลังสินค้า
-                </h2>
+                </h1>
               </div>
 
-              <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+              <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
                 {user && (
-                  <span style={{ fontSize: "12px", color: "var(--color-neutral-700)", background: "var(--color-surface)", padding: "4px 8px", borderRadius: "var(--radius-sm)" }}>
-                    Admin: <strong>{user.email}</strong>
-                  </span>
+                  <div className="flex items-center gap-1.5 text-xs text-neutral-800 bg-bg border border-divider px-3 py-1.5 rounded-xl font-medium shadow-xs">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <span>Admin:</span>
+                    <strong className="text-text font-semibold">{user.email}</strong>
+                  </div>
                 )}
-                <Link href="/" className="btn btn-secondary" style={{ fontSize: "12px", padding: "4px 10px" }}>
-                  ← ไปหน้าร้านค้า (Storefront)
+                <Link
+                  href="/"
+                  className="text-xs font-semibold px-3 py-2 rounded-xl border border-divider bg-surface hover:bg-bg text-text transition-colors shadow-xs flex items-center gap-1"
+                >
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="19" y1="12" x2="5" y2="12" />
+                    <polyline points="12 19 5 12 12 5" />
+                  </svg>
+                  <span>หน้าร้านค้า</span>
                 </Link>
                 {user && (
-                  <button onClick={handleLogout} className="btn btn-ghost" style={{ fontSize: "12px", padding: "4px 8px" }}>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="text-xs font-semibold px-3 py-2 rounded-xl text-rose-700 hover:bg-rose-100/60 transition-colors cursor-pointer"
+                  >
                     ออกจากระบบ
                   </button>
                 )}
               </div>
             </div>
-
-            {/* Admin Menu Tabs */}
-            <div
-              style={{
-                display: "flex",
-                flexWrap: "wrap",
-                alignItems: "center",
-                gap: "var(--space-1)",
-                padding: "var(--space-2) 0",
-                borderTop: "1px solid var(--color-divider)",
-                borderBottom: "1px solid var(--color-divider)",
-              }}
-            >
-              <Link
-                href="/dashboard"
-                className="btn"
-                style={{
-                  fontSize: "13px",
-                  padding: "6px 14px",
-                  border: "1px solid var(--color-divider)",
-                  background: pathname.startsWith("/dashboard") ? "var(--color-accent)" : "transparent",
-                  color: pathname.startsWith("/dashboard") ? "#ffffff" : "var(--color-text)",
-                  fontWeight: pathname.startsWith("/dashboard") ? 600 : 400,
-                }}
-              >
-                ภาพรวม (Dashboard)
-              </Link>
-              <Link
-                href="/order"
-                className="btn"
-                style={{
-                  fontSize: "13px",
-                  padding: "6px 14px",
-                  border: "1px solid var(--color-divider)",
-                  background: pathname.startsWith("/order") ? "var(--color-accent)" : "transparent",
-                  color: pathname.startsWith("/order") ? "#ffffff" : "var(--color-text)",
-                  fontWeight: pathname.startsWith("/order") ? 600 : 400,
-                }}
-              >
-                คำสั่งซื้อ (Orders)
-              </Link>
-              <Link
-                href="/inventory"
-                className="btn"
-                style={{
-                  fontSize: "13px",
-                  padding: "6px 14px",
-                  border: "1px solid var(--color-divider)",
-                  background: pathname.startsWith("/inventory") ? "var(--color-accent)" : "transparent",
-                  color: pathname.startsWith("/inventory") ? "#ffffff" : "var(--color-text)",
-                  fontWeight: pathname.startsWith("/inventory") ? 600 : 400,
-                }}
-              >
-                สินค้า & สต็อก (Inventory)
-              </Link>
-              <Link
-                href="/promotion"
-                className="btn"
-                style={{
-                  fontSize: "13px",
-                  padding: "6px 14px",
-                  border: "1px solid var(--color-divider)",
-                  background: pathname.startsWith("/promotion") ? "var(--color-accent)" : "transparent",
-                  color: pathname.startsWith("/promotion") ? "#ffffff" : "var(--color-text)",
-                  fontWeight: pathname.startsWith("/promotion") ? 600 : 400,
-                }}
-              >
-                โปรโมชั่น (Promotions)
-              </Link>
-            </div>
-          </header>
-        )}
-      </div>
+          </div>
+        </div>
+      )}
 
       {/* Slide-over Cart Drawer */}
       <CartDrawer isOpen={cartDrawerOpen} onClose={() => setCartDrawerOpen(false)} />

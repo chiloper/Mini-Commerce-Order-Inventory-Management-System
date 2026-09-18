@@ -17,6 +17,7 @@ import type {
   UpdatePromotionInput,
   ValidatePromotionResult,
   CheckoutInput,
+  CreateManualOrderInput,
   Order,
   DashboardStats,
 } from "@/types/ecommerce";
@@ -216,6 +217,15 @@ export async function checkoutAction(
   payload: CheckoutInput
 ): Promise<ApiResponse<Order>> {
   return await apiRequest<Order>(`/orders`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function createManualOrderAction(
+  payload: CreateManualOrderInput
+): Promise<ApiResponse<Order>> {
+  return await apiRequest<Order>(`/admin/orders`, {
     method: "POST",
     body: JSON.stringify(payload),
   });

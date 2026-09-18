@@ -135,8 +135,8 @@ h5 { font-size: 16px; }
 h6 { font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; }
 
 p { margin: 0 0 var(--space-3); }
-a { color: var(--color-accent); text-decoration: none; text-underline-offset: 3px; }
-a:hover { color: var(--color-accent-700); }
+a { color: inherit; text-decoration: none; }
+
 
 /* Halftone Effect */
 .halftone {

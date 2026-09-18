@@ -1,4 +1,14 @@
-import { IsDateString, IsInt, IsNotEmpty, IsOptional, IsString, Min } from "class-validator";
+import {
+  ArrayMinSize,
+  IsArray,
+  IsDateString,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Min,
+  ValidateNested,
+} from "class-validator";
 import { Type } from "class-transformer";
 
 export class CheckoutDto {
@@ -91,5 +101,71 @@ export class UpdatePromotionDto {
   @IsOptional()
   @IsDateString()
   expiresAt?: string;
+}
+
+export class ManualOrderItemDto {
+  @IsInt()
+  @Min(1)
+  @Type(() => Number)
+  productId!: number;
+
+  @IsInt()
+  @Min(1)
+  @Type(() => Number)
+  quantity!: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Type(() => Number)
+  price?: number;
+}
+
+export class CreateManualOrderDto {
+  @IsString()
+  @IsNotEmpty({ message: "ชื่อลูกค้าจำเป็นต้องกรอก" })
+  customerName!: string;
+
+  @IsOptional()
+  @IsString()
+  phone?: string;
+
+  @IsOptional()
+  @IsString()
+  shippingAddress?: string;
+
+  @IsString()
+  @IsNotEmpty({ message: "วิธีชำระเงินจำเป็นต้องระบุ" })
+  paymentMethod!: string;
+
+  @IsOptional()
+  @IsString()
+  statusText?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Type(() => Number)
+  shippingFee?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Type(() => Number)
+  discountAmount?: number;
+
+  @IsOptional()
+  @IsString()
+  channel?: string;
+
+  @IsOptional()
+  @IsString()
+  note?: string;
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ManualOrderItemDto)
+  @ArrayMinSize(1, { message: "ต้องระบุสินค้าอย่างน้อย 1 รายการ" })
+  items!: ManualOrderItemDto[];
 }
 

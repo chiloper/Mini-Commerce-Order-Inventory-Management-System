@@ -125,14 +125,17 @@ export default function PreviewDualFramePage() {
   });
 
   const cartLines = (cart.items || []).map((it: CartItem) => {
-    const p = (it.product?.sku && bySku[it.product.sku]) || decorate(it.product || {});
-    const avail = p.availNum || p.avail || 0;
+    const p =
+      (it.sku && bySku[it.sku]) ||
+      (it.product?.sku && bySku[it.product.sku]) ||
+      decorate(it.product || ({ name: it.productName, price: it.price, stock: it.stock, sku: it.sku, id: it.productId } as any));
+    const avail = p.availNum || p.avail || it.stock || 0;
     const over = it.quantity > avail;
     return {
       ...p,
       itemId: it.id,
       qty: it.quantity,
-      lineText: formatPrice((it.product?.price || 0) * it.quantity),
+      lineText: formatPrice((it.price ?? it.product?.price ?? 0) * it.quantity),
       warn: over,
       warnText: `ขายได้เพียง ${avail} ชิ้น — ระบบจะปรับจำนวนให้เมื่อกดชำระเงิน`,
       onInc: async () => {

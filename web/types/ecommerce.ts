@@ -50,6 +50,15 @@ export interface CartItem {
   cartId?: number | null;
   productId: number;
   quantity: number;
+  productName?: string;
+  sku?: string;
+  price?: number;
+  totalPrice?: number;
+  stock?: number;
+  isOverStock?: boolean;
+  category?: string;
+  imageUrl?: string | null;
+  images?: string | null;
   product?: Product;
 }
 
@@ -132,6 +141,9 @@ export interface DiscountBreakdown {
   customerName?: string;
   shippingAddress?: string;
   phone?: string;
+  channel?: string;
+  isManual?: boolean;
+  note?: string;
   statusText?: OrderStatus;
   items?: DiscountBreakdownItem[];
 }
@@ -166,6 +178,25 @@ export interface CheckoutInput {
   customerName?: string;
   shippingAddress?: string;
   phone?: string;
+}
+
+export interface ManualOrderItemInput {
+  productId: number;
+  quantity: number;
+  price?: number;
+}
+
+export interface CreateManualOrderInput {
+  customerName: string;
+  phone?: string;
+  shippingAddress?: string;
+  paymentMethod: string;
+  statusText?: string;
+  shippingFee?: number;
+  discountAmount?: number;
+  channel?: string;
+  note?: string;
+  items: ManualOrderItemInput[];
 }
 
 export interface MetricCard {

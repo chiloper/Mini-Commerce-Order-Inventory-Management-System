@@ -16,59 +16,60 @@ export default async function AccountPage() {
   const getStatusBadge = (statusText: string) => {
     switch (statusText) {
       case "paid":
-        return <span className="rounded-md bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">กำลังจัดของ</span>;
+        return <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">กำลังจัดของ</span>;
       case "wait":
-        return <span className="rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-semibold text-neutral-700">รอชำระเงิน</span>;
+        return <span className="rounded-full bg-neutral-200 px-2.5 py-0.5 text-xs font-semibold text-neutral-700">รอชำระเงิน</span>;
       case "sent":
-        return <span className="rounded-md bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-800">จัดส่งแล้ว</span>;
+        return <span className="rounded-full bg-accent-100 px-2.5 py-0.5 text-xs font-semibold text-accent-800">จัดส่งแล้ว</span>;
       case "hold":
-        return <span className="rounded-md bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">ติดปัญหาสต็อก</span>;
+        return <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">ติดปัญหาสต็อก</span>;
       default:
-        return <span className="rounded-md bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">สำเร็จ</span>;
+        return <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">สำเร็จ</span>;
     }
   };
 
+  const displayName = user.email.split("@")[0];
+
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
+    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8 pb-20">
       {/* Profile Card */}
-      <div className="mb-8 rounded-2xl border border-neutral-200 bg-white p-6 shadow-xs">
+      <div className="mb-8 rounded-2xl border border-divider bg-surface p-6 shadow-xs">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 text-xl font-bold text-blue-700">
-                {user.email[0].toUpperCase()}
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-neutral-900">{user.email}</h1>
-                <div className="mt-1 flex items-center gap-2">
-                  <span
-                    className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${
-                      user.role === "admin"
-                        ? "bg-purple-100 text-purple-700"
-                        : "bg-emerald-100 text-emerald-700"
-                    }`}
-                  >
-                    บทบาท: {user.role}
-                  </span>
-                  <span className="text-xs text-neutral-500">รหัสบัญชี #{user.id}</span>
-                </div>
+          <div className="flex items-center gap-4">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent text-2xl font-bold text-white shadow-xs">
+              {displayName[0].toUpperCase()}
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-text">{displayName}</h1>
+              <p className="text-xs text-neutral-700 font-medium mt-0.5">{user.email}</p>
+              <div className="mt-2 flex items-center gap-2">
+                <span
+                  className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
+                    user.role === "admin"
+                      ? "bg-purple-100 text-purple-800 border border-purple-200"
+                      : "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                  }`}
+                >
+                  {user.role === "admin" ? "ผู้ดูแลระบบ (Admin)" : "สมาชิก (Member)"}
+                </span>
+                <span className="text-[11px] text-neutral-700 font-mono font-semibold">ID #{user.id}</span>
               </div>
             </div>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
             <Link
               href="/list"
-              className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white hover:bg-blue-700 transition-colors shadow-xs"
+              className="rounded-xl bg-accent hover:bg-accent-600 active:bg-accent-700 px-4 py-2 text-xs font-bold !text-white transition-colors shadow-xs"
             >
-              ไปเลือกซื้อสินค้า
+              เลือกซื้อสินค้า
             </Link>
             {user.role === "admin" && (
               <Link
-                href="/dashboard"
-                className="rounded-lg border border-purple-300 bg-purple-50 px-4 py-2 text-xs font-semibold text-purple-700 hover:bg-purple-100 transition-colors"
+                href="/admin/console"
+                className="rounded-xl border border-purple-200 bg-purple-50 px-4 py-2 text-xs font-bold text-purple-800 hover:bg-purple-100 transition-colors"
               >
-                เข้าแดชบอร์ดแอดมิน
+                จัดการหลังร้าน (Admin)
               </Link>
             )}
           </div>
@@ -76,27 +77,27 @@ export default async function AccountPage() {
       </div>
 
       {/* Orders History */}
-      <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-xs">
+      <div className="rounded-2xl border border-divider bg-surface p-6 shadow-xs">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-neutral-900">
+          <h2 className="text-lg font-bold text-text">
             ประวัติคำสั่งซื้อของฉัน ({orders.length} รายการ)
           </h2>
         </div>
 
         {orders.length === 0 ? (
-          <div className="py-12 text-center">
-            <p className="text-sm text-neutral-500">ยังไม่มีประวัติการสั่งซื้อ</p>
+          <div className="py-16 text-center">
+            <p className="text-sm text-neutral-800 font-semibold mb-3">ยังไม่มีประวัติการสั่งซื้อ</p>
             <Link
               href="/list"
-              className="mt-3 inline-block rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white hover:bg-blue-700"
+              className="inline-block rounded-xl bg-accent hover:bg-accent-600 active:bg-accent-700 px-5 py-2.5 text-xs font-bold !text-white transition-colors shadow-xs"
             >
               เริ่มเลือกซื้อสินค้า
             </Link>
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-neutral-700">
-              <thead className="border-b border-neutral-200 bg-neutral-50 text-xs font-semibold text-neutral-500">
+            <table className="w-full text-left text-xs sm:text-sm text-neutral-800">
+              <thead className="border-b border-divider bg-bg text-xs font-bold text-neutral-800 uppercase tracking-wider">
                 <tr>
                   <th className="py-3 px-4">เลขที่คำสั่งซื้อ</th>
                   <th className="py-3 px-4">วันที่สั่งซื้อ</th>
@@ -106,15 +107,15 @@ export default async function AccountPage() {
                   <th className="py-3 px-4 text-right">สถานะ</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-neutral-100">
+              <tbody className="divide-y divide-divider">
                 {orders.map((ord: Order) => {
                   const breakdown = ord.discountBreakdown || {};
                   return (
-                    <tr key={ord.id} className="hover:bg-neutral-50/50">
-                      <td className="py-3.5 px-4 font-mono font-semibold text-blue-600">
+                    <tr key={ord.id} className="hover:bg-bg/60 transition-colors">
+                      <td className="py-3.5 px-4 font-mono font-bold text-accent-900">
                         #{ord.id.toString().padStart(5, "0")}
                       </td>
-                      <td className="py-3.5 px-4 text-xs text-neutral-500">
+                      <td className="py-3.5 px-4 text-xs text-neutral-700 font-medium whitespace-nowrap">
                         {new Date(ord.createdAt).toLocaleDateString("th-TH", {
                           year: "numeric",
                           month: "short",
@@ -123,16 +124,16 @@ export default async function AccountPage() {
                           minute: "2-digit",
                         })}
                       </td>
-                      <td className="py-3.5 px-4 text-xs">
+                      <td className="py-3.5 px-4 text-xs font-medium text-text max-w-[240px] truncate">
                         {ord.orderItems?.map((it: OrderItem) => it.product?.name || `สินค้า #${it.productId}`).join(", ") || "-"}
                       </td>
-                      <td className="py-3.5 px-4 font-bold text-neutral-900">
+                      <td className="py-3.5 px-4 font-bold text-text whitespace-nowrap">
                         ฿{ord.total.toLocaleString("th-TH")}
                       </td>
-                      <td className="py-3.5 px-4 text-xs text-neutral-600">
+                      <td className="py-3.5 px-4 text-xs text-neutral-800 font-medium">
                         {breakdown.paymentMethod || "พร้อมเพย์"}
                       </td>
-                      <td className="py-3.5 px-4 text-right">
+                      <td className="py-3.5 px-4 text-right whitespace-nowrap">
                         {getStatusBadge(breakdown.statusText || (ord.status ? "paid" : "hold"))}
                       </td>
                     </tr>

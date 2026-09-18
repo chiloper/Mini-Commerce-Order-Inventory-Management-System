@@ -22,9 +22,9 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className="min-h-full flex flex-col" style={{ background: "var(--color-bg)", color: "var(--color-text)" }}>
+      <body className="min-h-full w-full overflow-x-hidden flex flex-col" style={{ background: "var(--color-bg)", color: "var(--color-text)" }}>
         <SiteHeader />
-        <main className="flex-1">{children}</main>
+        <main className="flex-1 w-full overflow-x-hidden">{children}</main>
       </body>
     </html>
   );

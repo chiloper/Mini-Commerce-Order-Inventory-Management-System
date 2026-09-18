@@ -9,6 +9,7 @@ import { CartRepository } from "../cart/repository/cart.repository";
 import { PrismaService } from "../../prisma/prisma.service";
 import {
   CheckoutDto,
+  CreateManualOrderDto,
   CreatePromotionDto,
   UpdateOrderStatusDto,
   UpdatePromotionDto,
@@ -212,6 +213,127 @@ export class OrderService {
     });
 
     return order;
+  }
+
+  async createManualOrder(adminUserId: number, dto: CreateManualOrderDto): Promise<unknown> {
+    if (!dto.items || dto.items.length === 0) {
+      throw new BadRequestException("ต้องระบุสินค้าอย่างน้อย 1 รายการ");
+    }
+
+    const productIds = dto.items.map((i) => i.productId);
+    const products = await this.prisma.product.findMany({
+      where: { id: { in: productIds } },
+    });
+
+    const productMap = new Map(products.map((p) => [p.id, p]));
+
+    const isPaidOrProcessing = (dto.statusText || "paid") !== "wait";
+
+    for (const item of dto.items) {
+      const p = productMap.get(item.productId);
+      if (!p || !p.isActive) {
+        throw new BadRequestException(
+          `สินค้า #${item.productId} ไม่พร้อมจำหน่ายหรือไม่มีอยู่ในระบบ`
+        );
+      }
+      if (isPaidOrProcessing && p.stock < item.quantity) {
+        throw new ConflictException(
+          `สินค้า "${p.name}" เหลือในสต็อกเพียง ${p.stock} ชิ้น (คุณสั่งซื้อ ${item.quantity} ชิ้น)`
+        );
+      }
+    }
+
+    const calculatedItems = dto.items.map((item) => {
+      const p = productMap.get(item.productId)!;
+      const unitPrice =
+        item.price !== undefined && item.price >= 0 ? item.price : p.price;
+      return {
+        productId: p.id,
+        name: p.name,
+        sku: p.sku,
+        price: unitPrice,
+        quantity: item.quantity,
+      };
+    });
+
+    const subtotal = calculatedItems.reduce(
+      (acc, it) => acc + it.price * it.quantity,
+      0
+    );
+    const discountAmount = Math.max(0, dto.discountAmount || 0);
+    const shippingFee =
+      dto.shippingFee !== undefined
+        ? Math.max(0, dto.shippingFee)
+        : subtotal >= 1500
+        ? 0
+        : 50;
+    const total = Math.max(0, subtotal - discountAmount + shippingFee);
+    const statusText = dto.statusText || "paid";
+
+    const newOrder = await this.prisma.$transaction(async (tx) => {
+      if (isPaidOrProcessing) {
+        for (const it of dto.items) {
+          const freshProduct = await tx.product.findUnique({
+            where: { id: it.productId },
+          });
+          if (!freshProduct || freshProduct.stock < it.quantity) {
+            throw new ConflictException(
+              `สินค้า ${freshProduct?.name || it.productId} สต็อกไม่เพียงพอระหว่างทำรายการ`
+            );
+          }
+          await tx.product.update({
+            where: { id: it.productId },
+            data: { stock: { decrement: it.quantity } },
+          });
+        }
+      }
+
+      const discountBreakdown = {
+        subtotal,
+        discountAmount,
+        shippingFee,
+        promoCode: null,
+        promoDescription:
+          dto.note ||
+          (dto.channel
+            ? `สร้างคำสั่งซื้อด้วยตนเอง (${dto.channel})`
+            : "สร้างคำสั่งซื้อด้วยตนเอง (หน้าร้าน/ออฟไลน์)"),
+        paymentMethod: dto.paymentMethod,
+        customerName: dto.customerName || "ลูกค้าทั่วไป",
+        shippingAddress: dto.shippingAddress || "-",
+        phone: dto.phone || "-",
+        statusText,
+        channel: dto.channel || "หน้าร้าน / Direct",
+        note: dto.note || "",
+        items: calculatedItems,
+        isManual: true,
+      };
+
+      const created = await tx.order.create({
+        data: {
+          userId: adminUserId,
+          status: true,
+          total,
+          promotionId: null,
+          discountBreakdown,
+          createdAt: new Date(),
+          orderItems: {
+            create: dto.items.map((it) => ({
+              productId: it.productId,
+            })),
+          },
+        },
+        include: {
+          orderItems: {
+            include: { product: true },
+          },
+        },
+      });
+
+      return created;
+    });
+
+    return newOrder;
   }
 
   async findOrders(userId: number, role?: string): Promise<OrderWithRelations[]> {

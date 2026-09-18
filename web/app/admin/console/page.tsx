@@ -79,7 +79,7 @@ export default function AdminConsoleLoginPage() {
 
   if (loading) {
     return (
-      <div style={{ padding: "100px 0", textAlign: "center", color: "var(--color-neutral-600)" }}>
+      <div className="py-24 text-center text-sm font-medium text-neutral-800">
         กำลังตรวจสอบสิทธิ์การเข้าถึง Admin Console...
       </div>
     );
@@ -88,50 +88,33 @@ export default function AdminConsoleLoginPage() {
   // If user is currently logged in as customer (non-admin)
   if (user && user.role !== "admin") {
     return (
-      <div style={{ maxWidth: "520px", margin: "60px auto", padding: "var(--space-4)" }}>
-        <div
-          className="card elev-md"
-          style={{
-            padding: "var(--space-6)",
-            background: "var(--color-surface)",
-            gap: "var(--space-4)",
-            border: "1px solid var(--color-accent-2-300)",
-            textAlign: "center",
-          }}
-        >
-          <div
-            style={{
-              width: "56px",
-              height: "56px",
-              borderRadius: "50%",
-              background: "var(--color-accent-2-100)",
-              color: "var(--color-accent-2-700)",
-              fontSize: "24px",
-              display: "grid",
-              placeItems: "center",
-              margin: "0 auto",
-              fontWeight: 700,
-            }}
-          >
+      <div className="max-w-md mx-auto my-12 px-4">
+        <div className="rounded-2xl border border-rose-300 bg-surface p-6 sm:p-8 shadow-md flex flex-col gap-4 text-center">
+          <div className="w-14 h-14 rounded-full bg-rose-100 text-rose-700 flex items-center justify-center text-2xl font-bold mx-auto shadow-2xs">
             ✕
           </div>
 
           <div>
-            <h2 style={{ margin: "0 0 6px", fontSize: "24px" }}>ปฏิเสธการเข้าถึง (403 Forbidden)</h2>
-            <p style={{ margin: 0, fontSize: "14px", color: "var(--color-neutral-700)", lineHeight: 1.5 }}>
-              คุณกำลังล็อกอินด้วยบัญชี: <strong>{user.email}</strong> (สถานะ: ลูกค้า / Customer) ซึ่งไม่มีสิทธิ์เข้าใช้งานระบบจัดการหลังร้าน Admin Console
+            <h2 className="text-xl sm:text-2xl font-bold text-text m-0 mb-1.5">
+              ปฏิเสธการเข้าถึง (403 Forbidden)
+            </h2>
+            <p className="text-sm text-neutral-800 leading-relaxed m-0">
+              คุณกำลังล็อกอินด้วยบัญชี: <strong className="text-text font-bold">{user.email}</strong> (สถานะ: ลูกค้า / Customer) ซึ่งไม่มีสิทธิ์เข้าใช้งานระบบจัดการหลังร้าน Admin Console
             </p>
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)", marginTop: "var(--space-2)" }}>
+          <div className="flex flex-col gap-2.5 mt-2">
             <button
+              type="button"
               onClick={handleLogoutAndSwitch}
-              className="btn btn-primary btn-block"
-              style={{ height: "42px" }}
+              className="w-full min-h-[44px] rounded-xl bg-accent-2 hover:bg-accent-2-600 active:bg-accent-2-700 !text-white font-bold text-sm transition-colors shadow-xs flex items-center justify-center cursor-pointer"
             >
               ออกจากระบบและเข้าด้วยบัญชี Admin
             </button>
-            <Link href="/" className="btn btn-secondary btn-block" style={{ height: "42px" }}>
+            <Link
+              href="/"
+              className="w-full min-h-[44px] rounded-xl border border-divider bg-surface hover:bg-bg text-text font-semibold text-sm transition-colors flex items-center justify-center shadow-2xs"
+            >
               ← กลับไปหน้าร้านค้า (Storefront)
             </Link>
           </div>
@@ -142,61 +125,49 @@ export default function AdminConsoleLoginPage() {
 
   // Admin Login Screen
   return (
-    <div style={{ maxWidth: "480px", margin: "50px auto", padding: "var(--space-4)" }}>
-      <div
-        className="card elev-md"
-        style={{
-          padding: "var(--space-6)",
-          background: "var(--color-surface)",
-          gap: "var(--space-4)",
-          borderRadius: "var(--radius-md)",
-          border: "1px solid var(--color-divider)",
-        }}
-      >
-        <div style={{ textAlign: "center" }}>
-          <span style={{ fontSize: "11px", letterSpacing: ".16em", textTransform: "uppercase", color: "var(--color-accent-2-700)", fontWeight: 700 }}>
+    <div className="max-w-md mx-auto my-12 px-4">
+      <div className="rounded-2xl border border-divider bg-surface p-6 sm:p-8 shadow-md flex flex-col gap-5">
+        <div className="text-center">
+          <span className="text-[11px] uppercase tracking-wider font-mono font-bold text-accent-2">
             Restricted Area · ผู้ดูแลระบบเท่านั้น
           </span>
-          <h1 style={{ margin: "6px 0 0", fontSize: "28px" }}>เข้าสู่ระบบ Admin Console</h1>
-          <p style={{ margin: "6px 0 0", fontSize: "13px", color: "var(--color-neutral-700)", lineHeight: 1.5 }}>
+          <h1 className="text-2xl sm:text-3xl font-bold text-text m-0 mt-1.5">
+            เข้าสู่ระบบ Admin Console
+          </h1>
+          <p className="text-xs sm:text-sm text-neutral-800 leading-relaxed m-0 mt-2">
             ระบบจัดการคำสั่งซื้อ สต็อกสินค้า และโปรโมชั่น (เข้าใช้งานได้เฉพาะบัญชีสิทธิ์ Admin)
           </p>
         </div>
 
         {error && (
-          <div
-            style={{
-              padding: "var(--space-2) var(--space-3)",
-              background: "var(--color-accent-2-100)",
-              color: "var(--color-accent-2-800)",
-              border: "1px solid var(--color-accent-2-300)",
-              borderRadius: "var(--radius-md)",
-              fontSize: "13px",
-            }}
-          >
+          <div className="p-3 rounded-xl bg-rose-100 border border-rose-300 text-rose-950 text-xs font-semibold leading-relaxed">
             {error}
           </div>
         )}
 
-        <form onSubmit={handleAdminLogin} style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
-          <div className="field">
-            <label>อีเมลผู้ดูแลระบบ (Admin Email)</label>
+        <form onSubmit={handleAdminLogin} className="flex flex-col gap-4">
+          <div>
+            <label className="text-xs font-bold text-neutral-800 block mb-1.5">
+              อีเมลผู้ดูแลระบบ (Admin Email)
+            </label>
             <input
               type="email"
               required
-              className="input"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-divider bg-bg text-text text-sm placeholder:text-neutral-500 outline-none focus:border-accent font-medium shadow-2xs"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="admin@minicommerce.com"
             />
           </div>
 
-          <div className="field">
-            <label>รหัสผ่าน (Password)</label>
+          <div>
+            <label className="text-xs font-bold text-neutral-800 block mb-1.5">
+              รหัสผ่าน (Password)
+            </label>
             <input
               type="password"
               required
-              className="input"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-divider bg-bg text-text text-sm placeholder:text-neutral-500 outline-none focus:border-accent font-medium shadow-2xs"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
@@ -206,34 +177,38 @@ export default function AdminConsoleLoginPage() {
           <button
             type="submit"
             disabled={submitting}
-            className="btn btn-primary btn-block"
-            style={{ height: "44px", fontSize: "15px", marginTop: "var(--space-2)", background: "var(--color-accent-2)", borderColor: "var(--color-accent-2)" }}
+            className="w-full min-h-[46px] rounded-xl bg-accent-2 hover:bg-accent-2-600 active:bg-accent-2-700 !text-white font-bold text-sm transition-colors cursor-pointer shadow-xs flex items-center justify-center disabled:opacity-50 mt-1"
           >
             {submitting ? "กำลังตรวจสอบสิทธิ์..." : "เข้าสู่ระบบ Admin Console"}
           </button>
         </form>
 
         {/* Quick Demo Fill for Admin */}
-        <div style={{ borderTop: "1px solid var(--color-divider)", paddingTop: "var(--space-3)", textAlign: "center" }}>
-          <p style={{ margin: "0 0 8px", fontSize: "11px", letterSpacing: ".1em", textTransform: "uppercase", color: "var(--color-neutral-700)", fontWeight: 600 }}>
+        <div className="border-t border-divider pt-4 text-center">
+          <p className="m-0 mb-2 text-[11px] font-mono tracking-wider uppercase font-bold text-neutral-700">
             บัญชีทดสอบสำหรับผู้ดูแลระบบ
           </p>
           <button
             type="button"
             onClick={handleQuickFill}
-            className="btn btn-secondary"
-            style={{ width: "100%", padding: "8px 12px", textAlign: "left", display: "flex", justifyContent: "space-between", alignItems: "center" }}
+            className="w-full p-3 rounded-xl border border-divider bg-bg hover:bg-surface text-left transition-colors cursor-pointer flex items-center justify-between shadow-2xs group"
           >
             <div>
-              <div style={{ fontSize: "13px", fontWeight: 700, color: "var(--color-accent-2-700)" }}>Admin Account</div>
-              <div style={{ fontSize: "11px", color: "var(--color-neutral-700)" }}>admin@minicommerce.com (รหัสผ่าน: admin123)</div>
+              <div className="text-xs font-bold text-accent-2 group-hover:underline">
+                Admin Account
+              </div>
+              <div className="text-[11px] text-neutral-800 font-medium">
+                admin@minicommerce.com (รหัสผ่าน: admin123)
+              </div>
             </div>
-            <span style={{ fontSize: "11px", color: "var(--color-accent-700)", fontWeight: 600 }}>คลิกเพื่อกรอก →</span>
+            <span className="text-xs font-bold text-accent shrink-0 ml-2">
+              คลิกเพื่อกรอก →
+            </span>
           </button>
         </div>
 
-        <div style={{ textAlign: "center", paddingTop: "var(--space-1)" }}>
-          <Link href="/" style={{ fontSize: "12px", color: "var(--color-neutral-700)" }}>
+        <div className="text-center pt-1 border-t border-divider">
+          <Link href="/" className="text-xs text-neutral-800 hover:text-accent font-semibold transition-colors">
             ← กลับไปหน้าร้านค้าทั่วไป
           </Link>
         </div>
