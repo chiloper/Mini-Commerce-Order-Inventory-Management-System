@@ -218,6 +218,40 @@ API ที่รองรับ Pagination ต้องส่ง Response กล
    - สำหรับรูปภาพลำดับอื่นๆ ผู้ดูแลระบบสามารถคลิกที่รูปภาพใดก็ได้เพื่อเลื่อนรูปนั้นขึ้นมาเป็น **รูปหลัก (Index 0)** ทันที พร้อมแสดง Tooltip และ Hover Overlay `"ตั้งเป็นรูปหลัก"` อย่างชัดเจน
    - ปุ่มลบรูป (`✕`) มีการดักจับ `e.stopPropagation()` เพื่อให้ลบรูปออกได้โดยไม่ส่งผลให้เกิดการตั้งเป็นรูปหลักโดยไม่ตั้งใจ
 
+4. **สถาปัตยกรรมแยกโมดูลย่อยเป็น Component-Based Architecture (Strict Single Responsibility)**:
+   - **กฎเหล็ก**: ห้ามเขียนโค้ดรวมทุกอย่างไว้ในไฟล์ `page.tsx` ขนาดใหญ่เพียงไฟล์เดียว แต่ต้องแยกย่อยเป็นคอมโพเนนต์เฉพาะทางภายใต้โฟลเดอร์ `web/components/<feature>/`
+   - **โครงสร้างคอมโพเนนต์ที่จัดระเบียบแล้ว**:
+     - `web/components/confirm-modal.tsx`: กล่องโต้ตอบ Modal สากลสำหรับทั้งการแจ้งเตือน (Alert) และการยืนยัน (Confirmation)
+     - `web/components/inventory/`:
+       - `image-gallery-uploader.tsx`: คอมโพเนนต์อัปโหลดรูปภาพผ่าน Cloudinary และเลือกรูปหลัก
+       - `refill-stock-modal.tsx`: ป๊อปอัปเติมสต็อกด่วนพร้อมชิปเพิ่มจำนวน (+5, +10, +20, +50)
+       - `create-product-modal.tsx`: แบบฟอร์มเพิ่มสินค้าใหม่
+       - `edit-product-modal.tsx`: แบบฟอร์มแก้ไขสินค้า พร้อมระบบ 2-step deletion (Archive / Hard Delete / Restore)
+       - `inventory-table.tsx`: ตารางแสดงรายการสินค้า แถบ progress สต็อก และ Pagination
+       - `inventory-toolbar.tsx`: แถบค้นหา แท็บตัวกรองสถานะ และปุ่ม Export CSV ทั้งหมด
+     - `web/components/order/`:
+       - `order-toolbar.tsx`: แท็บสถานะออเดอร์, ช่องค้นหา, ตัวกรองย้อนหลัง 1วัน/7วัน/30วัน/1ปี/ทั้งหมด, และปุ่ม Export CSV ตามตัวกรอง
+       - `order-table.tsx`: ตารางคำสั่งซื้อ ป้ายกำกับช่องทางจำหน่าย ยอดสุทธิ และปุ่มดูรายละเอียด
+       - `order-details-modal.tsx`: หน้าต่างแสดงรายละเอียดออเดอร์ รายการสินค้า ข้อมูลจัดส่ง และการเปลี่ยนสถานะ
+       - `create-order-modal.tsx`: แบบฟอร์มสร้างออเดอร์แบบ Manual พร้อมระบบคำนวณและตรวจสอบโควตาส่วนลด
+     - `web/components/promotion/`:
+       - `promotion-table.tsx`: ตารางแคมเปญโปรโมชั่น พร้อมสถานะและโควตาการใช้งาน
+       - `create-promotion-modal.tsx`: แบบฟอร์มสร้างโปรโมชั่นใหม่
+       - `edit-promotion-modal.tsx`: แบบฟอร์มแก้ไขและลบโปรโมชั่น
+     - `web/components/storefront/`:
+       - `product-card.tsx`: การ์ดสินค้าหน้าร้าน พร้อมภาพอัตราส่วน 4:3, ป้ายบอกสต็อกคงเหลือ, ป้ายหมวดหมู่, และปุ่มใส่ตะกร้า
+       - `filter-sidebar.tsx`: แถบตัวกรองด้านข้างบนหน้าจอคอมพิวเตอร์ (Desktop Sticky Sidebar)
+       - `mobile-filters.tsx`: แถบชิปหมวดหมู่ด่วน และหน้าต่างสไลด์ตัวกรองจากด้านล่าง (Bottom Sheet) สำหรับมือถือ
+       - `active-filter-chips.tsx`: ชิปแสดงตัวกรองที่เลือกอยู่ พร้อมปุ่มล้างตัวกรองแบบ One-Tap Clear
+
+5. **ระบบกล่องข้อความแจ้งเตือนและยืนยันแบบ In-App Dialog (`ConfirmModal`) แทน Browser Native Alerts**:
+   - ห้ามใช้ `window.alert(...)` หรือ `window.confirm(...)` ดั้งเดิมของเบราว์เซอร์เด็ดขาด เพราะทำให้ UX ขาดความต่อเนื่องและไม่สวยงาม
+   - ใช้คอมโพเนนต์ `ConfirmModal` ที่รองรับ:
+     - 4 รูปแบบ (Variants): `danger`, `warning`, `info`, `success` พร้อมไอคอนและสีสันสอดคล้องตาม Design System
+     - แบ็กดรอปเบลอ (`backdrop-blur-sm bg-black/40`), แอนิเมชัน Zoom-In, รองรับการกดปุ่ม `ESC` เพื่อปิด
+     - รองรับทั้งโหมด 2 ปุ่ม (Confirm / Cancel) และโหมด Alert ปุ่มเดียว (ส่ง `cancelText={null}`)
+     - ป้องกัน Double-submit ด้วยสถานะ `isLoading` และไอคอน Spinner หมุนระหว่างบันทึกข้อมูล
+
 ---
 
 ## 5. ระบบโปรโมชั่นและส่วนลด (Promotion & Discount Rules)

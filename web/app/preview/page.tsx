@@ -15,6 +15,7 @@ import {
   getPromotions,
   updateProductAction,
 } from "../../lib/ecommerce-actions";
+import { ConfirmModal } from "@/components/confirm-modal";
 import type { Product, Cart, CartItem, Order, Promotion, MetricCard } from "@/types/ecommerce";
 
 export default function PreviewDualFramePage() {
@@ -38,6 +39,17 @@ export default function PreviewDualFramePage() {
   const [promoMsg, setPromoMsg] = useState("");
   const [promoOk, setPromoOk] = useState(true);
   const [discount, setDiscount] = useState(0);
+
+  const [alertModal, setAlertModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    variant?: "info" | "success" | "warning" | "danger";
+  }>({
+    isOpen: false,
+    title: "",
+    message: "",
+  });
 
   const loadAll = async () => {
     const [prods, c, ords, pms, st] = await Promise.all([
@@ -189,12 +201,22 @@ export default function PreviewDualFramePage() {
       promotionCode: promoOk && code ? code.trim().toUpperCase() : undefined,
     });
     if (res.ok) {
-      alert(`ชำระเงินสำเร็จ! บันทึกคำสั่งซื้อ #${res.data?.id} เรียบร้อยแล้ว`);
+      setAlertModal({
+        isOpen: true,
+        title: "ชำระเงินสำเร็จ!",
+        message: `บันทึกคำสั่งซื้อ #${res.data?.id} เรียบร้อยแล้ว`,
+        variant: "success",
+      });
       await loadAll();
       setStorePage("list");
       setCartOpen(false);
     } else {
-      alert(res.error || "เกิดข้อผิดพลาดในการตัดสต็อก");
+      setAlertModal({
+        isOpen: true,
+        title: "เกิดข้อผิดพลาด",
+        message: res.error || "เกิดข้อผิดพลาดในการตัดสต็อก",
+        variant: "danger",
+      });
     }
   };
 
@@ -964,6 +986,17 @@ export default function PreviewDualFramePage() {
           </div>
         </section>
       )}
+
+      <ConfirmModal
+        isOpen={alertModal.isOpen}
+        title={alertModal.title}
+        message={alertModal.message}
+        variant={alertModal.variant || "info"}
+        confirmText="ตกลง"
+        cancelText={null}
+        onConfirm={() => setAlertModal((prev) => ({ ...prev, isOpen: false }))}
+        onCancel={() => setAlertModal((prev) => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 }
