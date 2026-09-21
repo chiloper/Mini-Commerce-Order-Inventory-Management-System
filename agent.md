@@ -6,9 +6,9 @@
 
 ## 1. ข้อห้ามเด็ดขาด (Strict Constraints & Hard Rules)
 
-### 1.1 การใช้งาน Git (Git Operations) 🚫
-- ❌ **ห้ามสั่ง `git commit` หรือ `git push` ผ่าน Terminal / Tools โดยเด็ดขาด** ไม่ว่ากรณีใดก็ตาม
-- ✅ **สิ่งที่ต้องทำ**: เมื่อแก้ไขหรือพัฒนาฟีเจอร์เสร็จสิ้น ให้จัดเตรียมคำสั่ง `git add ...` และ `git commit -m "..."` ในรูปแบบ Conventional Commits อย่างชัดเจน เพื่อให้ **User เป็นผู้คัดลอกไปรันเอง** ที่ Terminal
+### 1.1 การใช้งาน Git (Git Operations) 📦
+- ✅ **การทำ Commit & Push**: เมื่อดำเนินการพัฒนาหรือ Refactor โค้ดเสร็จสิ้นและผ่านการรัน Build (`npm run build`) เรียบร้อย 100% ให้ทำการรัน `git add .`, ทำ `git commit` ด้วยข้อความแบบ Conventional Commits อย่างชัดเจน และทำการ `git push origin dev` ให้กับ User ทันที (หรือหาก User ไม่ต้องการ push ให้ตรวจสอบความประสงค์ของ User)
+- ⚠️ **ความเรียบร้อยก่อน Commit**: ต้องมั่นใจว่าโค้ดไม่มี Error, ไม่ทำลายฟังก์ชันเดิม, ตรวจสอบ `git status` ทุกครั้งก่อนและหลัง Commit
 
 ### 1.2 การล็อคสถานะคำสั่งซื้อ (Shipped Order Status Locking) 🔒
 - ❌ **คำสั่งซื้อที่มีสถานะ `"shipped"` (จัดส่งแล้ว) จะต้องไม่สามารถปรับเปลี่ยนสถานะหรือยกเลิกได้อีก** ทั้งฝั่ง Frontend และ Backend
@@ -300,7 +300,7 @@ npm run start             # รัน Production Web Server
 ก่อนรายงานผลหรือแจ้ง User ทุกครั้ง ต้องตรวจสอบเงื่อนไขดังนี้:
 1. [ ] รัน `npm run build` ในโฟลเดอร์ `api` สำเร็จ 0 errors
 2. [ ] รัน `npm run build` ในโฟลเดอร์ `web` สำเร็จ 0 errors
-3. [ ] เช็คว่าไม่มีการรัน `git commit` หรือ `git push` โดยเด็ดขาด
+3. [ ] ดำเนินการ git add, git commit และ git push ให้เรียบร้อยพร้อมรายงาน Hash
 4. [ ] ตรวจสอบว่าหน้าจอไม่มีการแตกหัก, ขอบล้น, หรือตัวหนังสือจม
 5. [ ] ตรวจสอบว่าระบบมีความปลอดภัยเรื่อง Concurrency และไม่มี Race Condition (Atomic updates)
 6. [ ] ตรวจสอบว่าได้อัปเดตไฟล์ `agent.md` เรียบร้อยแล้วทุกครั้งก่อนส่งมอบงาน
