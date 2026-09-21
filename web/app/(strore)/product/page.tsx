@@ -221,11 +221,17 @@ function ProductDetailContent() {
             </div>
           </div>
 
-          {/* Urgency Stock Banner (Loss Aversion Heuristic) */}
+          {/* Urgency Stock Banner (Harmonious with web theme) */}
           {stock > 0 && stock <= 10 && (
-            <div className="flex items-center gap-2.5 p-3 rounded-xl bg-amber-100 border border-amber-300 text-amber-950 text-xs font-bold">
-              <span className="text-base">⚡</span>
+            <div className="flex items-center gap-2.5 p-3 rounded-xl bg-amber-50/90 border border-amber-200/90 text-amber-900 text-xs font-semibold shadow-2xs">
+              <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0" />
               <span>สินค้าใกล้หมด! เหลือเพียง {stock} ชิ้นสุดท้ายในสต็อก รีบสั่งซื้อก่อนสินค้าหมด</span>
+            </div>
+          )}
+          {stock === 0 && (
+            <div className="flex items-center gap-2.5 p-3 rounded-xl bg-surface border border-divider text-neutral-700 text-xs font-semibold shadow-2xs">
+              <span className="w-2 h-2 rounded-full bg-neutral-400 shrink-0" />
+              <span>ขณะนี้สินค้าหมดชั่วคราว อยู่ระหว่างการเติมสต็อกสินค้า</span>
             </div>
           )}
 

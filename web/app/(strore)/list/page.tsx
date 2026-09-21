@@ -456,7 +456,11 @@ export default function ProductListPage() {
                       href={`/product?id=${p.id}`}
                       className="block cursor-pointer overflow-hidden rounded-lg relative"
                     >
-                      <div className="relative aspect-[4/3] w-full bg-neutral-200 flex items-center justify-center overflow-hidden">
+                      <div
+                        className={`relative aspect-[4/3] w-full bg-neutral-200 flex items-center justify-center overflow-hidden transition-all ${
+                          isSoldOut ? "opacity-65 grayscale-[35%]" : ""
+                        }`}
+                      >
                         {p.imageUrl ? (
                           <img
                             src={p.imageUrl}
@@ -470,15 +474,17 @@ export default function ProductListPage() {
                         )}
                       </div>
 
-                      {/* Stock badge overlay */}
-                      <div className="absolute top-2 left-2 flex flex-col gap-1 z-10 pointer-events-none">
+                      {/* Stock badge overlay: Elegant frosted pills matching web theme */}
+                      <div className="absolute top-2.5 right-2.5 flex flex-col gap-1 z-10 pointer-events-none">
                         {isSoldOut ? (
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-600 text-white shadow-xs">
-                            สินค้าหมด
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold tracking-tight bg-neutral-900/80 backdrop-blur-md text-white shadow-xs border border-white/10">
+                            <span className="w-1.5 h-1.5 rounded-full bg-neutral-400 shrink-0" />
+                            <span>สินค้าหมด</span>
                           </span>
                         ) : (p.stock || 0) <= 10 ? (
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-400 text-neutral-950 shadow-xs border border-amber-500">
-                            เหลือ {p.stock} ชิ้น
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold tracking-tight bg-amber-50/95 backdrop-blur-md text-amber-900 shadow-xs border border-amber-200/90">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse shrink-0" />
+                            <span>เหลือ {p.stock} ชิ้น</span>
                           </span>
                         ) : null}
                       </div>
@@ -512,12 +518,20 @@ export default function ProductListPage() {
                       <span className="text-[11px] font-semibold tracking-wide uppercase text-accent-900 bg-accent-100 border border-accent-200 px-2 py-0.5 rounded">
                         {p.catagory?.name || "สินค้าทั่วไป"}
                       </span>
-                      <span
-                        className={`text-xs font-medium ${
-                          isSoldOut ? "text-rose-700 font-bold" : "text-neutral-800"
-                        }`}
-                      >
-                        {isSoldOut ? "สินค้าหมด" : `คงเหลือ ${p.stock} ชิ้น`}
+                      <span className="text-xs font-medium">
+                        {isSoldOut ? (
+                          <span className="text-neutral-500 font-medium">หมดสต็อก</span>
+                        ) : (p.stock || 0) <= 10 ? (
+                          <span className="text-amber-800 font-semibold flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+                            เหลือ {p.stock} ชิ้น
+                          </span>
+                        ) : (
+                          <span className="text-neutral-700 flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 shrink-0" />
+                            พร้อมส่ง ({p.stock})
+                          </span>
+                        )}
                       </span>
                     </div>
 
