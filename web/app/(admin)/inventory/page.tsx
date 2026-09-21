@@ -52,6 +52,7 @@ export default function AdminInventoryPage() {
   const [limit] = useState<number>(10);
   const [total, setTotal] = useState<number>(0);
   const [totalPages, setTotalPages] = useState<number>(1);
+  const [exporting, setExporting] = useState<boolean>(false);
 
   // Create Product Modal state
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -216,6 +217,77 @@ export default function AdminInventoryPage() {
   const decorated = products.map(decorate);
   const filtered = decorated;
 
+  // Handle Export All Stock to CSV
+  const handleExportCsv = async () => {
+    try {
+      setExporting(true);
+      // Fetch all products in the database without pagination
+      const allProducts = await getProducts();
+
+      if (!allProducts || allProducts.length === 0) {
+        alert("ไม่พบข้อมูลสินค้าในระบบสำหรับส่งออก");
+        setExporting(false);
+        return;
+      }
+
+      const escapeCsv = (val: unknown) => {
+        if (val === null || val === undefined) return '""';
+        const str = String(val).replace(/"/g, '""');
+        return `"${str}"`;
+      };
+
+      const headers = [
+        "รหัสสินค้า (SKU)",
+        "ชื่อสินค้า",
+        "หมวดหมู่",
+        "ราคาขาย (บาท)",
+        "สต็อกคงเหลือ",
+        "จองไว้",
+        "พร้อมส่ง",
+        "สถานะสต็อก",
+        "สถานะการขาย",
+        "รหัสระบบ (ID)",
+      ];
+
+      const rows = allProducts.map((p) => {
+        const dec = decorate(p);
+        const catName = p.catagory?.name || p.category || "ทั่วไป";
+        const saleStatus = p.isActive ? "เปิดขาย" : "ปิดการขาย";
+
+        return [
+          escapeCsv(p.sku),
+          escapeCsv(p.name),
+          escapeCsv(catName),
+          escapeCsv(p.price),
+          escapeCsv(p.stock || 0),
+          escapeCsv(p.held || 0),
+          escapeCsv(dec.avail),
+          escapeCsv(dec.statusLabel),
+          escapeCsv(saleStatus),
+          escapeCsv(p.id),
+        ].join(",");
+      });
+
+      // Prepend UTF-8 BOM (\uFEFF) for Excel Thai character support
+      const csvContent = "\uFEFF" + [headers.map(escapeCsv).join(","), ...rows].join("\r\n");
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const dateStr = new Date().toISOString().slice(0, 10);
+      link.setAttribute("href", url);
+      link.setAttribute("download", `stock_inventory_all_${dateStr}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Export Stock CSV error:", err);
+      alert("เกิดข้อผิดพลาดในการส่งออกไฟล์ CSV");
+    } finally {
+      setExporting(false);
+    }
+  };
+
   // Handle Create Product
   const handleOpenCreate = () => {
     setCreateSku(`SKU-${Math.floor(2100 + Math.random() * 899)}`);
@@ -357,10 +429,40 @@ export default function AdminInventoryPage() {
                 สินค้า & สต็อก
               </h2>
             </div>
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap">
+              {/* Export All Stock to CSV */}
               <button
                 type="button"
-                className="px-4 py-2 text-xs sm:text-sm font-bold rounded-xl bg-accent hover:bg-accent-600 active:bg-accent-700 !text-white transition-all cursor-pointer shadow-xs"
+                onClick={handleExportCsv}
+                disabled={exporting || loading}
+                title="ส่งออกรายการสินค้าและสต็อกทั้งหมดเป็นไฟล์ CSV (รองรับภาษาไทยใน Excel)"
+                className="inline-flex items-center justify-center gap-2 px-3.5 sm:px-4 py-2 rounded-xl border border-emerald-300/80 bg-emerald-50 text-emerald-800 hover:bg-emerald-100/90 active:scale-95 disabled:opacity-50 disabled:pointer-events-none text-xs sm:text-sm font-bold transition-all shadow-2xs cursor-pointer shrink-0"
+              >
+                {exporting ? (
+                  <>
+                    <svg className="w-4 h-4 animate-spin text-emerald-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="12" cy="12" r="10" strokeDasharray="30" strokeDashoffset="10" />
+                    </svg>
+                    <span>กำลังส่งออก...</span>
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4 text-emerald-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                      <polyline points="7 10 12 15 17 10" />
+                      <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                    <span>ส่งออก CSV</span>
+                    <span className="px-1.5 py-0.2 rounded-full bg-emerald-200/80 text-[10px] font-mono text-emerald-900">
+                      ทั้งหมด
+                    </span>
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                className="px-4 py-2 text-xs sm:text-sm font-bold rounded-xl bg-accent hover:bg-accent-600 active:bg-accent-700 !text-white transition-all cursor-pointer shadow-xs shrink-0"
                 onClick={handleOpenCreate}
               >
                 + เพิ่มสินค้าใหม่
