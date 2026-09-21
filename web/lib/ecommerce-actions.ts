@@ -501,12 +501,14 @@ export async function getPaginatedOrders(query: {
   limit?: number;
   search?: string;
   status?: string;
+  dateRange?: string;
 }): Promise<PaginatedResult<Order>> {
   const params = new URLSearchParams();
   params.append("page", String(query.page));
   if (query.limit) params.append("limit", String(query.limit));
   if (query.search) params.append("search", query.search);
   if (query.status && query.status !== "all") params.append("status", query.status);
+  if (query.dateRange && query.dateRange !== "all") params.append("dateRange", query.dateRange);
 
   const res = await apiRequest<PaginatedResult<Order>>(`/orders?${params.toString()}`);
   return (
@@ -518,6 +520,22 @@ export async function getPaginatedOrders(query: {
       totalPages: 1,
     }
   );
+}
+
+export async function exportOrdersAction(query: {
+  search?: string;
+  status?: string;
+  dateRange?: string;
+}): Promise<Order[]> {
+  const params = new URLSearchParams();
+  params.append("page", "1");
+  params.append("limit", "10000");
+  if (query.search) params.append("search", query.search);
+  if (query.status && query.status !== "all") params.append("status", query.status);
+  if (query.dateRange && query.dateRange !== "all") params.append("dateRange", query.dateRange);
+
+  const res = await apiRequest<PaginatedResult<Order>>(`/orders?${params.toString()}`);
+  return res.data?.data || [];
 }
 
 export async function getOrderById(id: number): Promise<Order | null> {

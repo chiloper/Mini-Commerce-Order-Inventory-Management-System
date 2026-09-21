@@ -3,6 +3,7 @@ import { PrismaService } from "../../../prisma/prisma.service";
 import { CreatePromotionDto, QueryOrderDto, QueryPromotionDto, UpdatePromotionDto } from "../dto/order.dto";
 import { Prisma, Promotion } from "../../../generated/prisma/client";
 import {
+  DailyRevenuePoint,
   DashboardStatsResult,
   DiscountBreakdownData,
   OrderWithRelations,
@@ -227,6 +228,26 @@ export class OrderRepository {
       }
     }
 
+    // Date range filter
+    if (query?.dateRange && query.dateRange !== "all") {
+      const now = new Date();
+      let fromDate: Date | null = null;
+      if (query.dateRange === "1d") {
+        fromDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      } else if (query.dateRange === "7d") {
+        fromDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      } else if (query.dateRange === "30d") {
+        fromDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      } else if (query.dateRange === "1y") {
+        fromDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+      }
+      if (fromDate) {
+        andConditions.push({
+          createdAt: { gte: fromDate },
+        });
+      }
+    }
+
     if (andConditions.length > 0) {
       where.AND = andConditions;
     }
@@ -383,6 +404,59 @@ export class OrderRepository {
       }));
     }).slice(0, 6);
 
+    // Calculate daily revenue for the past 30 days
+    const THAI_MONTHS = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+    const THAI_DAYS = ["อา.", "จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส."];
+
+    const dailyRevenueMap = new Map<string, { revenue: number; ordersCount: number }>();
+    const now = new Date();
+
+    const dailyRevenue: DailyRevenuePoint[] = [];
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const date = String(d.getDate()).padStart(2, "0");
+      const key = `${year}-${month}-${date}`;
+      const label = `${d.getDate()} ${THAI_MONTHS[d.getMonth()]}`;
+      const dayName = THAI_DAYS[d.getDay()];
+
+      dailyRevenueMap.set(key, { revenue: 0, ordersCount: 0 });
+      dailyRevenue.push({
+        date: key,
+        label,
+        dayName,
+        revenue: 0,
+        ordersCount: 0,
+      });
+    }
+
+    for (const o of allOrders) {
+      const b = (o.discountBreakdown as unknown as DiscountBreakdownData) || {};
+      const st = (b.statusText || "").toLowerCase();
+      if (st === "cancelled") continue;
+
+      const d = new Date(o.createdAt);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const date = String(d.getDate()).padStart(2, "0");
+      const key = `${year}-${month}-${date}`;
+
+      const entry = dailyRevenueMap.get(key);
+      if (entry) {
+        entry.revenue += o.total;
+        entry.ordersCount += 1;
+      }
+    }
+
+    for (const point of dailyRevenue) {
+      const entry = dailyRevenueMap.get(point.date);
+      if (entry) {
+        point.revenue = entry.revenue;
+        point.ordersCount = entry.ordersCount;
+      }
+    }
+
     return {
       stats: [
         {
@@ -410,6 +484,7 @@ export class OrderRepository {
       lowStockProducts,
       recentOrders,
       stockLog,
+      dailyRevenue,
     };
   }
 }

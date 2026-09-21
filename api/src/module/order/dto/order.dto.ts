@@ -193,6 +193,10 @@ export class QueryOrderDto {
   @IsOptional()
   @IsString()
   status?: string;
+
+  @IsOptional()
+  @IsString()
+  dateRange?: string;
 }
 
 export class QueryPromotionDto {

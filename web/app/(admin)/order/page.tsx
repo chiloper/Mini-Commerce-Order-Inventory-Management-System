@@ -11,6 +11,7 @@ import {
   getProducts,
   createManualOrderAction,
   validatePromotion,
+  exportOrdersAction,
 } from "../../../lib/ecommerce-actions";
 import { getSessionUserAction } from "../../../lib/auth/actions";
 import type { Order, Product } from "@/types/ecommerce";
@@ -58,6 +59,7 @@ export default function AdminOrderPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>("all");
+  const [dateRange, setDateRange] = useState<string>("all");
   const [search, setSearch] = useState<string>("");
   const [page, setPage] = useState<number>(1);
   const [limit] = useState<number>(10);
@@ -65,6 +67,7 @@ export default function AdminOrderPage() {
   const [totalPages, setTotalPages] = useState<number>(1);
   const [selectedOrder, setSelectedOrder] = useState<DecoratedOrder | null>(null);
   const [updating, setUpdating] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   // Create Manual Order Modal States
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -97,6 +100,7 @@ export default function AdminOrderPage() {
   const loadOrders = async (
     targetPage = page,
     targetFilter = filter,
+    targetDateRange = dateRange,
     targetSearch = search
   ) => {
     setLoading(true);
@@ -104,6 +108,7 @@ export default function AdminOrderPage() {
       page: targetPage,
       limit,
       status: targetFilter,
+      dateRange: targetDateRange,
       search: targetSearch,
     });
     setOrders(res.data);
@@ -119,7 +124,7 @@ export default function AdminOrderPage() {
         router.push("/admin/console");
         return;
       }
-      loadOrders(1, filter, search);
+      loadOrders(1, filter, dateRange, search);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
@@ -127,19 +132,25 @@ export default function AdminOrderPage() {
   const handleFilterChange = (newFilter: string) => {
     setFilter(newFilter);
     setPage(1);
-    loadOrders(1, newFilter, search);
+    loadOrders(1, newFilter, dateRange, search);
+  };
+
+  const handleDateRangeChange = (newDateRange: string) => {
+    setDateRange(newDateRange);
+    setPage(1);
+    loadOrders(1, filter, newDateRange, search);
   };
 
   const handlePageChange = (newPage: number) => {
     setPage(newPage);
-    loadOrders(newPage, filter, search);
+    loadOrders(newPage, filter, dateRange, search);
   };
 
   // Debounce search
   useEffect(() => {
     const timer = setTimeout(() => {
       setPage(1);
-      loadOrders(1, filter, search);
+      loadOrders(1, filter, dateRange, search);
     }, 300);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -250,9 +261,97 @@ export default function AdminOrderPage() {
     }
     setUpdating(true);
     await updateOrderStatus(selectedOrder.id, status);
-    await loadOrders(page, filter, search);
+    await loadOrders(page, filter, dateRange, search);
     setSelectedOrder(null);
     setUpdating(false);
+  };
+
+  const handleExportCsv = async () => {
+    try {
+      setExporting(true);
+      const ordersToExport = await exportOrdersAction({
+        status: filter,
+        dateRange,
+        search,
+      });
+
+      if (!ordersToExport || ordersToExport.length === 0) {
+        alert("ไม่พบข้อมูลคำสั่งซื้อตามตัวกรองที่เลือกสำหรับส่งออก");
+        setExporting(false);
+        return;
+      }
+
+      const escapeCsv = (val: unknown) => {
+        if (val === null || val === undefined) return '""';
+        const str = String(val).replace(/"/g, '""');
+        return `"${str}"`;
+      };
+
+      const headers = [
+        "เลขออเดอร์",
+        "วันที่",
+        "เวลา",
+        "ชื่อลูกค้า",
+        "เบอร์โทรศัพท์",
+        "ที่อยู่จัดส่ง",
+        "ช่องทางการขาย",
+        "วิธีชำระเงิน",
+        "รายการสินค้า",
+        "จำนวนชิ้นรวม",
+        "ยอดรวมสินค้า",
+        "ส่วนลด",
+        "โค้ดโปรโมชั่น",
+        "ค่าจัดส่ง",
+        "ยอดชำระสุทธิ",
+        "สถานะคำสั่งซื้อ",
+        "สถานะสต็อก",
+      ];
+
+      const rows = ordersToExport.map((o) => {
+        const dec = decorateOrder(o);
+        const itemsSummary = dec.items
+          .map((it) => `${it.name || it.product?.name || "สินค้า"} x${it.quantity || 1}`)
+          .join(" | ");
+
+        return [
+          escapeCsv(`#${dec.id}`),
+          escapeCsv(dec.dateStr),
+          escapeCsv(dec.time),
+          escapeCsv(dec.customerName),
+          escapeCsv(dec.phone || "-"),
+          escapeCsv(dec.shippingAddress || "-"),
+          escapeCsv(dec.channel || "หน้าร้าน"),
+          escapeCsv(dec.paymentMethod || "โอนเงิน"),
+          escapeCsv(itemsSummary),
+          escapeCsv(dec.itemsCount),
+          escapeCsv(dec.subtotal),
+          escapeCsv(dec.discountAmount),
+          escapeCsv(dec.promoCode || "-"),
+          escapeCsv(dec.shippingFee),
+          escapeCsv(dec.totalAmount),
+          escapeCsv(dec.statusLabel),
+          escapeCsv(dec.stockNote),
+        ].join(",");
+      });
+
+      // Prepend UTF-8 BOM (\uFEFF) for Excel Thai encoding support
+      const csvContent = "\uFEFF" + [headers.map(escapeCsv).join(","), ...rows].join("\r\n");
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const dateStr = new Date().toISOString().slice(0, 10);
+      link.setAttribute("href", url);
+      link.setAttribute("download", `orders_export_${filter}_${dateRange}_${dateStr}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Export CSV error:", err);
+      alert("เกิดข้อผิดพลาดในการส่งออกไฟล์ CSV");
+    } finally {
+      setExporting(false);
+    }
   };
 
   const handleOpenCreateModal = async () => {
@@ -492,78 +591,161 @@ export default function AdminOrderPage() {
             </button>
           </div>
 
-          {/* Filter Bar & Search */}
-          <div className="flex items-center gap-3 flex-wrap">
-            <div className="flex items-center gap-1.5 p-1 rounded-xl border border-divider bg-surface shadow-2xs overflow-x-auto max-w-full">
-              <button
-                type="button"
-                className={`px-3 py-1.5 text-xs rounded-lg font-semibold transition-all cursor-pointer whitespace-nowrap ${
-                  filter === "all"
-                    ? "bg-accent text-white shadow-xs"
-                    : "text-neutral-700 hover:text-neutral-900 hover:bg-bg"
-                }`}
-                onClick={() => handleFilterChange("all")}
-              >
-                ทั้งหมด
-              </button>
-              <button
-                type="button"
-                className={`px-3 py-1.5 text-xs rounded-lg font-semibold transition-all cursor-pointer whitespace-nowrap ${
-                  filter === "wait"
-                    ? "bg-accent text-white shadow-xs"
-                    : "text-neutral-700 hover:text-neutral-900 hover:bg-bg"
-                }`}
-                onClick={() => handleFilterChange("wait")}
-              >
-                รอชำระ
-              </button>
-              <button
-                type="button"
-                className={`px-3 py-1.5 text-xs rounded-lg font-semibold transition-all cursor-pointer whitespace-nowrap ${
-                  filter === "paid"
-                    ? "bg-accent text-white shadow-xs"
-                    : "text-neutral-700 hover:text-neutral-900 hover:bg-bg"
-                }`}
-                onClick={() => handleFilterChange("paid")}
-              >
-                กำลังจัดของ
-              </button>
-              <button
-                type="button"
-                className={`px-3 py-1.5 text-xs rounded-lg font-semibold transition-all cursor-pointer whitespace-nowrap ${
-                  filter === "shipped"
-                    ? "bg-accent text-white shadow-xs"
-                    : "text-neutral-700 hover:text-neutral-900 hover:bg-bg"
-                }`}
-                onClick={() => handleFilterChange("shipped")}
-              >
-                จัดส่งแล้ว
-              </button>
-              <button
-                type="button"
-                className={`px-3 py-1.5 text-xs rounded-lg font-semibold transition-all cursor-pointer whitespace-nowrap ${
-                  filter === "cancelled"
-                    ? "bg-accent text-white shadow-xs"
-                    : "text-neutral-700 hover:text-neutral-900 hover:bg-bg"
-                }`}
-                onClick={() => handleFilterChange("cancelled")}
-              >
-                ยกเลิก
-              </button>
+          {/* Filters & Actions Toolbar */}
+          <div className="flex flex-col gap-3 p-3.5 sm:p-4 rounded-2xl border border-divider bg-surface shadow-2xs">
+            {/* Row 1: Status Filter Tabs + Search Input */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+              {/* Status Filter Tabs */}
+              <div className="flex items-center gap-1.5 p-1 rounded-xl border border-divider bg-bg overflow-x-auto max-w-full">
+                <span className="text-[11px] font-bold text-neutral-500 px-2 uppercase tracking-wider shrink-0 select-none">
+                  สถานะ:
+                </span>
+                <button
+                  type="button"
+                  className={`px-3 py-1.5 text-xs rounded-lg font-semibold transition-all cursor-pointer whitespace-nowrap ${
+                    filter === "all"
+                      ? "bg-accent !text-white shadow-xs"
+                      : "text-neutral-700 hover:text-neutral-900 hover:bg-surface"
+                  }`}
+                  onClick={() => handleFilterChange("all")}
+                >
+                  ทั้งหมด
+                </button>
+                <button
+                  type="button"
+                  className={`px-3 py-1.5 text-xs rounded-lg font-semibold transition-all cursor-pointer whitespace-nowrap ${
+                    filter === "wait"
+                      ? "bg-accent !text-white shadow-xs"
+                      : "text-neutral-700 hover:text-neutral-900 hover:bg-surface"
+                  }`}
+                  onClick={() => handleFilterChange("wait")}
+                >
+                  รอชำระ
+                </button>
+                <button
+                  type="button"
+                  className={`px-3 py-1.5 text-xs rounded-lg font-semibold transition-all cursor-pointer whitespace-nowrap ${
+                    filter === "paid"
+                      ? "bg-accent !text-white shadow-xs"
+                      : "text-neutral-700 hover:text-neutral-900 hover:bg-surface"
+                  }`}
+                  onClick={() => handleFilterChange("paid")}
+                >
+                  กำลังจัดของ
+                </button>
+                <button
+                  type="button"
+                  className={`px-3 py-1.5 text-xs rounded-lg font-semibold transition-all cursor-pointer whitespace-nowrap ${
+                    filter === "shipped"
+                      ? "bg-accent !text-white shadow-xs"
+                      : "text-neutral-700 hover:text-neutral-900 hover:bg-surface"
+                  }`}
+                  onClick={() => handleFilterChange("shipped")}
+                >
+                  จัดส่งแล้ว
+                </button>
+                <button
+                  type="button"
+                  className={`px-3 py-1.5 text-xs rounded-lg font-semibold transition-all cursor-pointer whitespace-nowrap ${
+                    filter === "cancelled"
+                      ? "bg-accent !text-white shadow-xs"
+                      : "text-neutral-700 hover:text-neutral-900 hover:bg-surface"
+                  }`}
+                  onClick={() => handleFilterChange("cancelled")}
+                >
+                  ยกเลิก
+                </button>
+              </div>
+
+              {/* Search Box */}
+              <label className="flex items-center gap-2 w-full sm:w-64 md:w-72 bg-bg border border-divider rounded-xl px-3.5 py-2 focus-within:ring-2 focus-within:ring-accent focus-within:border-transparent transition-all shadow-2xs">
+                <svg className="w-4 h-4 text-neutral-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="11" cy="11" r="7" />
+                  <line x1="16.5" y1="16.5" x2="21" y2="21" />
+                </svg>
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="ค้นหาเลขออเดอร์ หรือ ชื่อ..."
+                  className="w-full bg-transparent border-0 outline-none text-xs text-text placeholder:text-neutral-500"
+                />
+                {search && (
+                  <button
+                    type="button"
+                    onClick={() => setSearch("")}
+                    className="text-neutral-400 hover:text-neutral-600 text-xs px-1 cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                )}
+              </label>
             </div>
 
-            <label className="flex items-center gap-2 w-full sm:w-72 ml-auto bg-surface border border-divider rounded-xl px-3.5 py-2 focus-within:ring-2 focus-within:ring-accent focus-within:border-transparent transition-all shadow-2xs">
-              <svg className="w-4 h-4 text-neutral-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="11" cy="11" r="7" />
-                <line x1="16.5" y1="16.5" x2="21" y2="21" />
-              </svg>
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="ค้นหาเลขออเดอร์ หรือ ชื่อ..."
-                className="w-full bg-transparent border-0 outline-none text-xs text-text placeholder:text-neutral-500"
-              />
-            </label>
+            {/* Row 2: Date Range Filter + Export CSV Button */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2.5 border-t border-divider">
+              {/* Date Range Pills */}
+              <div className="flex items-center gap-1.5 p-1 rounded-xl border border-divider bg-bg overflow-x-auto max-w-full">
+                <span className="text-[11px] font-bold text-neutral-500 px-2 uppercase tracking-wider flex items-center gap-1 shrink-0 select-none">
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                    <line x1="16" y1="2" x2="16" y2="6" />
+                    <line x1="8" y1="2" x2="8" y2="6" />
+                    <line x1="3" y1="10" x2="21" y2="10" />
+                  </svg>
+                  <span>ช่วงเวลา:</span>
+                </span>
+                {[
+                  { key: "all", label: "ทั้งหมด" },
+                  { key: "1d", label: "1 วัน" },
+                  { key: "7d", label: "7 วัน" },
+                  { key: "30d", label: "30 วัน" },
+                  { key: "1y", label: "1 ปี" },
+                ].map((item) => (
+                  <button
+                    key={item.key}
+                    type="button"
+                    onClick={() => handleDateRangeChange(item.key)}
+                    className={`px-3 py-1 text-xs rounded-lg font-semibold transition-all cursor-pointer whitespace-nowrap ${
+                      dateRange === item.key
+                        ? "bg-accent !text-white shadow-xs"
+                        : "text-neutral-700 hover:text-neutral-900 hover:bg-surface"
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Export CSV Button */}
+              <button
+                type="button"
+                onClick={handleExportCsv}
+                disabled={exporting || loading}
+                title="ส่งออกคำสั่งซื้อที่กรองอยู่ในปัจจุบันเป็นไฟล์ CSV (รองรับภาษาไทยใน Excel)"
+                className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl border border-emerald-300/80 bg-emerald-50 text-emerald-800 hover:bg-emerald-100/90 active:scale-95 disabled:opacity-50 disabled:pointer-events-none text-xs font-bold transition-all shadow-2xs cursor-pointer shrink-0"
+              >
+                {exporting ? (
+                  <>
+                    <svg className="w-4 h-4 animate-spin text-emerald-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="12" cy="12" r="10" strokeDasharray="30" strokeDashoffset="10" />
+                    </svg>
+                    <span>กำลังส่งออก...</span>
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4 text-emerald-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                      <polyline points="7 10 12 15 17 10" />
+                      <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                    <span>ส่งออก CSV</span>
+                    <span className="px-1.5 py-0.2 rounded-full bg-emerald-200/80 text-[10px] font-mono text-emerald-900">
+                      {total.toLocaleString("th-TH")}
+                    </span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
 
           {/* Orders Table */}

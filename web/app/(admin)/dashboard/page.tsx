@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import AdminSidebar from "../../../components/admin-sidebar";
 import AdminPagination from "../../../components/admin-pagination";
+import DailyRevenueChart from "../../../components/daily-revenue-chart";
 import { getDashboardStats, getPaginatedOrders } from "../../../lib/ecommerce-actions";
 import { getSessionUserAction } from "../../../lib/auth/actions";
 import type { DashboardStats, Order, Product, MetricCard, StockMovementLog } from "@/types/ecommerce";
@@ -131,6 +132,9 @@ export default function AdminDashboardPage() {
               </div>
             ))}
           </div>
+
+          {/* Daily Revenue Graph */}
+          <DailyRevenueChart data={data?.dailyRevenue} />
 
           {/* 2-Column Split: Urgent Stock Refill & Stock Movements Log */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

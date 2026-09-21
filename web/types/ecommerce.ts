@@ -218,11 +218,20 @@ export interface StockMovementLog {
   color: string;
 }
 
+export interface DailyRevenuePoint {
+  date: string;
+  label: string;
+  dayName: string;
+  revenue: number;
+  ordersCount: number;
+}
+
 export interface DashboardStats {
   stats: MetricCard[];
   lowStockProducts: Product[];
   recentOrders: Order[];
   stockLog: StockMovementLog[];
+  dailyRevenue?: DailyRevenuePoint[];
 }
 
 export interface ApiResponse<T = unknown> {

@@ -318,14 +318,6 @@ export default function SiteHeader() {
             {/* Top row: Title and Admin user actions */}
             <div className="flex items-center justify-between gap-4 flex-wrap">
               <div>
-                <div className="flex items-center gap-2 mb-0.5">
-                  <span className="text-[11px] uppercase tracking-wider font-bold text-accent-2 font-mono">
-                    Mini Commerce · Admin Console
-                  </span>
-                  <span className="text-[10px] bg-accent-2/10 text-accent-2 font-bold px-1.5 py-0.2 rounded border border-accent-2/20">
-                    Restricted
-                  </span>
-                </div>
                 <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-text m-0">
                   ระบบจัดการหลังร้านและคลังสินค้า
                 </h1>

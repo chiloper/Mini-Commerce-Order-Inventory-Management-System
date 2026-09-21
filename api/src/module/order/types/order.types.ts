@@ -58,11 +58,20 @@ export type OrderWithRelations = Order & {
   orderItems?: OrderItemWithProduct[];
 };
 
+export interface DailyRevenuePoint {
+  date: string;
+  label: string;
+  dayName: string;
+  revenue: number;
+  ordersCount: number;
+}
+
 export interface DashboardStatsResult {
   stats: MetricCard[];
   lowStockProducts: Product[];
   recentOrders: OrderWithRelations[];
   stockLog: StockLogEntry[];
+  dailyRevenue?: DailyRevenuePoint[];
 }
 
 export interface PaginatedResult<T> {
