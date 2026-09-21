@@ -9,7 +9,7 @@ import {
   Post,
 } from "@nestjs/common";
 import { CartService } from "./cart.service";
-import { AddToCartDto, UpdateCartItemDto } from "./dto/cart.dto";
+import { AddToCartDto, MergeCartDto, UpdateCartItemDto } from "./dto/cart.dto";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import type { AuthenticatedUser } from "../auth/types/auth.types";
 import type { CartSummary } from "./types/cart.types";
@@ -29,6 +29,14 @@ export class CartController {
     @Body() dto: AddToCartDto
   ): Promise<CartSummary> {
     return this.cartService.addItem(user.id, dto);
+  }
+
+  @Post("merge")
+  mergeCart(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: MergeCartDto
+  ): Promise<CartSummary> {
+    return this.cartService.mergeCart(user.id, dto.items);
   }
 
   @Patch("items/:id")
@@ -53,3 +61,4 @@ export class CartController {
     return this.cartService.clearCart(user.id);
   }
 }
+

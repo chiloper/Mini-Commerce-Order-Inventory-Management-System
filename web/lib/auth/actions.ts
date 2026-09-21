@@ -3,6 +3,7 @@
 import { loginRequest, logoutRequest, registerRequest } from "./api";
 import { clearSession, getCurrentUser, readRefreshToken, writeSession } from "./session";
 import { PublicUser } from "./type";
+import { mergeGuestCart } from "../ecommerce-actions";
 
 export async function loginAction(
   prevState: unknown,
@@ -21,6 +22,7 @@ export async function loginAction(
   }
 
   await writeSession(result.data);
+  await mergeGuestCart(result.data.accessToken);
   return { success: true, user: result.data.user };
 }
 
@@ -45,6 +47,7 @@ export async function registerAction(
   }
 
   await writeSession(result.data);
+  await mergeGuestCart(result.data.accessToken);
   return { success: true, user: result.data.user };
 }
 

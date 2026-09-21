@@ -58,7 +58,7 @@ export interface CartItem {
   isOverStock?: boolean;
   category?: string;
   imageUrl?: string | null;
-  images?: string | null;
+  images?: string | string[] | null;
   product?: Product;
 }
 

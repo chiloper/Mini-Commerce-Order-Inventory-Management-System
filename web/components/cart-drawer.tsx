@@ -8,6 +8,8 @@ import {
   removeCartItem,
   validatePromotion,
 } from "../lib/ecommerce-actions";
+import { getSessionUserAction } from "../lib/auth/actions";
+import type { PublicUser } from "../lib/auth/type";
 import type { Cart, CartItem } from "@/types/ecommerce";
 
 interface CartDrawerProps {
@@ -25,6 +27,7 @@ interface AppliedPromo {
 }
 
 export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
+  const [user, setUser] = useState<PublicUser | null>(null);
   const [cart, setCart] = useState<Cart>({ items: [], totalQuantity: 0, subtotal: 0 });
   const [loading, setLoading] = useState(false);
   const [promoCode, setPromoCode] = useState("");
@@ -61,6 +64,7 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
     if (isOpen) {
       document.body.style.overflow = "hidden";
       fetchCart();
+      getSessionUserAction().then((u) => setUser(u));
       // Restore promo code from session if available
       if (typeof window !== "undefined" && !appliedPromo) {
         const savedCode = sessionStorage.getItem("cart_promo_code");
@@ -80,6 +84,7 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
   useEffect(() => {
     const handleUpdate = () => {
       fetchCart();
+      getSessionUserAction().then((u) => setUser(u));
     };
     window.addEventListener("cart-updated", handleUpdate);
     return () => window.removeEventListener("cart-updated", handleUpdate);
@@ -477,20 +482,37 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
               </div>
             </div>
 
-            {/* Checkout Button */}
-            <Link
-              href={appliedPromo ? `/checkout?promo=${encodeURIComponent(appliedPromo.code)}` : "/checkout"}
-              onClick={onClose}
-              className="w-full min-h-[46px] flex items-center justify-center gap-2 rounded-xl text-sm font-bold bg-accent !text-white hover:bg-accent-600 active:bg-accent-700 transition-all cursor-pointer shadow-xs text-center active:scale-[0.99]"
-            >
-              <span className="!text-white">ดำเนินการชำระเงิน</span>
-              <span className="!text-white">·</span>
-              <span className="!text-white">{formatPrice(total)}</span>
-              <svg className="w-4 h-4 ml-1 !text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <line x1="5" y1="12" x2="19" y2="12" />
-                <polyline points="12 5 19 12 12 19" />
-              </svg>
-            </Link>
+            {/* Checkout Button: Requires login before checking out */}
+            {user ? (
+              <Link
+                href={appliedPromo ? `/checkout?promo=${encodeURIComponent(appliedPromo.code)}` : "/checkout"}
+                onClick={onClose}
+                className="w-full min-h-[46px] flex items-center justify-center gap-2 rounded-xl text-sm font-bold bg-accent !text-white hover:bg-accent-600 active:bg-accent-700 transition-all cursor-pointer shadow-xs text-center active:scale-[0.99]"
+              >
+                <span className="!text-white">ดำเนินการชำระเงิน</span>
+                <span className="!text-white">·</span>
+                <span className="!text-white">{formatPrice(total)}</span>
+                <svg className="w-4 h-4 ml-1 !text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                  <polyline points="12 5 19 12 12 19" />
+                </svg>
+              </Link>
+            ) : (
+              <Link
+                href={`/login?redirect=${encodeURIComponent(appliedPromo ? `/checkout?promo=${encodeURIComponent(appliedPromo.code)}` : "/checkout")}`}
+                onClick={onClose}
+                className="w-full min-h-[46px] flex items-center justify-center gap-2 rounded-xl text-sm font-bold bg-accent !text-white hover:bg-accent-600 active:bg-accent-700 transition-all cursor-pointer shadow-xs text-center active:scale-[0.99]"
+              >
+                <svg className="w-4 h-4 mr-0.5 !text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
+                </svg>
+                <span className="!text-white">เข้าสู่ระบบเพื่อชำระเงิน</span>
+                <span className="!text-white">·</span>
+                <span className="!text-white">{formatPrice(total)}</span>
+                <span className="!text-white ml-0.5">→</span>
+              </Link>
+            )}
 
             <div className="flex items-center justify-center gap-1.5 text-xs text-neutral-700 font-medium">
               <svg className="w-3.5 h-3.5 text-emerald-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

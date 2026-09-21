@@ -368,26 +368,47 @@ export default function CheckoutPage() {
 
           {/* Quick Demo Test Buttons */}
           <div className="pt-4 border-t border-divider">
-            <p className="text-[11px] uppercase tracking-wider text-neutral-500 text-center font-semibold mb-2.5">
+            <p className="text-[11px] uppercase tracking-wider text-neutral-700 text-center font-semibold mb-2.5">
               คลิกเพื่อเติมบัญชีสำหรับทดสอบ (Quick Test)
             </p>
-            <div className="grid grid-cols-2 gap-2.5">
+            <div className="flex flex-col gap-2">
               <button
                 type="button"
-                className="p-2.5 rounded-xl border border-divider bg-bg hover:bg-surface text-left transition-colors cursor-pointer"
+                className="p-2.5 rounded-xl border border-divider bg-bg hover:bg-surface text-left transition-colors cursor-pointer flex items-center justify-between shadow-2xs group"
                 onClick={() => handleQuickFill("customer@minicommerce.com", "customer123")}
               >
-                <span className="block text-xs font-bold text-accent-800">Customer ลูกค้า</span>
-                <span className="block text-[10px] text-neutral-500 truncate">customer@minicommerce.com</span>
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center shrink-0 border border-blue-200">
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                      <circle cx="12" cy="7" r="4" />
+                    </svg>
+                  </div>
+                  <div className="min-w-0">
+                    <span className="block text-xs font-bold text-accent-800 group-hover:underline">Customer ลูกค้าทั่วไป</span>
+                    <span className="block text-[11px] text-neutral-700 truncate">customer@minicommerce.com · รหัส: customer123</span>
+                  </div>
+                </div>
+                <span className="text-[11px] font-semibold text-accent shrink-0 ml-2">เติมข้อมูล →</span>
               </button>
 
               <button
                 type="button"
-                className="p-2.5 rounded-xl border border-divider bg-bg hover:bg-surface text-left transition-colors cursor-pointer"
+                className="p-2.5 rounded-xl border border-divider bg-bg hover:bg-surface text-left transition-colors cursor-pointer flex items-center justify-between shadow-2xs group"
                 onClick={() => handleQuickFill("admin@minicommerce.com", "admin123")}
               >
-                <span className="block text-xs font-bold text-purple-700">Admin ผู้ดูแล</span>
-                <span className="block text-[10px] text-neutral-500 truncate">admin@minicommerce.com</span>
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center shrink-0 border border-purple-200">
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                    </svg>
+                  </div>
+                  <div className="min-w-0">
+                    <span className="block text-xs font-bold text-purple-800 group-hover:underline">Admin ผู้ดูแลระบบ</span>
+                    <span className="block text-[11px] text-neutral-700 truncate">admin@minicommerce.com · รหัส: admin123</span>
+                  </div>
+                </div>
+                <span className="text-[11px] font-semibold text-accent shrink-0 ml-2">เติมข้อมูล →</span>
               </button>
             </div>
           </div>

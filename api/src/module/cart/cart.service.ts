@@ -113,4 +113,31 @@ export class CartService {
     await this.cartRepository.clearCart(cart.id);
     return this.getCart(userId);
   }
+
+  async mergeCart(userId: number, items: { productId: number; quantity: number }[]): Promise<CartSummary> {
+    if (!items || items.length === 0) {
+      return this.getCart(userId);
+    }
+
+    const cart = await this.cartRepository.getActiveCartByUserId(userId);
+
+    for (const item of items) {
+      if (!item.productId || item.quantity <= 0) continue;
+
+      const product = await this.productRepository.findById(item.productId);
+      if (!product || !product.isActive || product.stock <= 0) continue;
+
+      const existingItem = await this.cartRepository.findCartItem(cart.id, item.productId);
+      const currentQty = existingItem ? existingItem.quantity : 0;
+
+      const availableToAdd = Math.max(0, product.stock - currentQty);
+      const quantityToAdd = Math.min(item.quantity, availableToAdd);
+
+      if (quantityToAdd > 0) {
+        await this.cartRepository.addItem(cart.id, item.productId, quantityToAdd);
+      }
+    }
+
+    return this.getCart(userId);
+  }
 }

@@ -4,6 +4,7 @@ import { API_BASE_URL } from "./auth/config";
 import { readAccesToken, readRefreshToken, writeSession } from "./auth/session";
 import { needsRefresh } from "./auth/tokens";
 import { refreshSession } from "./auth/refresh";
+import { cookies } from "next/headers";
 import type {
   ApiResponse,
   Product,
@@ -156,44 +157,254 @@ export async function deleteProductAction(
   });
 }
 
-// 2. Cart
+// 2. Cart (Support both Authenticated User API and Guest Cookie Cart)
+const GUEST_CART_COOKIE = "mc_guest_cart";
+
+export interface GuestCartEntry {
+  productId: number;
+  quantity: number;
+}
+
+export async function getGuestCartEntries(): Promise<GuestCartEntry[]> {
+  const cookieStore = await cookies();
+  const raw = cookieStore.get(GUEST_CART_COOKIE)?.value;
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return parsed.filter(
+        (it) => typeof it.productId === "number" && typeof it.quantity === "number" && it.quantity > 0
+      );
+    }
+  } catch {
+    // ignore
+  }
+  return [];
+}
+
+export async function setGuestCartEntries(entries: GuestCartEntry[]): Promise<void> {
+  const cookieStore = await cookies();
+  if (entries.length === 0) {
+    cookieStore.delete(GUEST_CART_COOKIE);
+  } else {
+    cookieStore.set(GUEST_CART_COOKIE, JSON.stringify(entries), {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 7 * 24 * 60 * 60,
+    });
+  }
+}
+
 export async function getCart(): Promise<Cart> {
-  const res = await apiRequest<Cart>(`/cart`);
-  return res.data || { items: [], totalQuantity: 0, subtotal: 0 };
+  const token = await getValidToken();
+  if (token) {
+    const res = await apiRequest<Cart>(`/cart`);
+    return res.data || { items: [], totalQuantity: 0, subtotal: 0 };
+  }
+
+  // Guest Cart hydration
+  const entries = await getGuestCartEntries();
+  if (entries.length === 0) {
+    return { items: [], totalQuantity: 0, subtotal: 0 };
+  }
+
+  const products = await getProducts();
+  const productMap = new Map<number, Product>();
+  products.forEach((p) => productMap.set(p.id, p));
+
+  const items: CartItem[] = [];
+  let totalQuantity = 0;
+  let subtotal = 0;
+
+  for (const entry of entries) {
+    const p = productMap.get(entry.productId);
+    if (!p || p.isActive === false) continue;
+
+    const availableStock = p.stock || 0;
+    const qty = Math.max(1, entry.quantity);
+    const isOverStock = qty > availableStock;
+    const lineTotal = (p.price || 0) * qty;
+
+    items.push({
+      id: entry.productId,
+      productId: entry.productId,
+      productName: p.name,
+      sku: p.sku,
+      price: p.price,
+      quantity: qty,
+      totalPrice: lineTotal,
+      stock: availableStock,
+      isOverStock,
+      category: p.catagory?.name || "",
+      imageUrl: p.imageUrl || null,
+      images: p.images || null,
+      product: p,
+    });
+
+    totalQuantity += qty;
+    subtotal += lineTotal;
+  }
+
+  return {
+    id: 0,
+    userId: null,
+    items,
+    totalQuantity,
+    subtotal,
+  };
 }
 
 export async function addToCart(
   productId: number,
   quantity: number = 1
 ): Promise<ApiResponse<CartItem>> {
-  return await apiRequest<CartItem>(`/cart/items`, {
-    method: "POST",
-    body: JSON.stringify({ productId, quantity }),
-  });
+  const token = await getValidToken();
+  if (token) {
+    return await apiRequest<CartItem>(`/cart/items`, {
+      method: "POST",
+      body: JSON.stringify({ productId, quantity }),
+    });
+  }
+
+  // Guest Cart Add
+  const entries = await getGuestCartEntries();
+  const existingIdx = entries.findIndex((e) => e.productId === productId);
+
+  const products = await getProducts();
+  const product = products.find((p) => p.id === productId);
+  if (!product) {
+    return { ok: false, error: "ไม่พบสินค้าในระบบ" };
+  }
+  if (!product.isActive) {
+    return { ok: false, error: "สินค้านี้ไม่พร้อมจำหน่าย" };
+  }
+
+  const currentQty = existingIdx >= 0 ? entries[existingIdx].quantity : 0;
+  const newQty = currentQty + quantity;
+
+  if (newQty > product.stock) {
+    return {
+      ok: false,
+      error: `ไม่สามารถเพิ่มสินค้าได้ สต็อกคงเหลือ ${product.stock} ชิ้น (ในตะกร้ามี ${currentQty} ชิ้น)`,
+    };
+  }
+
+  if (existingIdx >= 0) {
+    entries[existingIdx].quantity = newQty;
+  } else {
+    entries.push({ productId, quantity: newQty });
+  }
+
+  await setGuestCartEntries(entries);
+
+  const cartItem: CartItem = {
+    id: productId,
+    productId,
+    productName: product.name,
+    sku: product.sku,
+    price: product.price,
+    quantity: newQty,
+    totalPrice: (product.price || 0) * newQty,
+    stock: product.stock,
+    isOverStock: false,
+    category: product.catagory?.name || "",
+    imageUrl: product.imageUrl || null,
+    images: product.images || null,
+    product,
+  };
+
+  return { ok: true, data: cartItem };
 }
 
 export async function updateCartItem(
   itemId: number,
   quantity: number
 ): Promise<ApiResponse<CartItem>> {
-  return await apiRequest<CartItem>(`/cart/items/${itemId}`, {
-    method: "PATCH",
-    body: JSON.stringify({ quantity }),
-  });
+  const token = await getValidToken();
+  if (token) {
+    return await apiRequest<CartItem>(`/cart/items/${itemId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ quantity }),
+    });
+  }
+
+  // For guest, itemId is productId
+  const entries = await getGuestCartEntries();
+  const idx = entries.findIndex((e) => e.productId === itemId);
+  if (idx < 0) {
+    return { ok: false, error: "ไม่พบรายการสินค้านี้ในตะกร้า" };
+  }
+
+  if (quantity <= 0) {
+    entries.splice(idx, 1);
+    await setGuestCartEntries(entries);
+    return { ok: true };
+  }
+
+  const products = await getProducts();
+  const product = products.find((p) => p.id === itemId);
+  if (product && quantity > product.stock) {
+    return {
+      ok: false,
+      error: `จำนวนสินค้าเกินสต็อกคงเหลือ (${product.stock} ชิ้น)`,
+    };
+  }
+
+  entries[idx].quantity = quantity;
+  await setGuestCartEntries(entries);
+  return { ok: true };
 }
 
 export async function removeCartItem(
   itemId: number
 ): Promise<ApiResponse<void>> {
-  return await apiRequest<void>(`/cart/items/${itemId}`, {
-    method: "DELETE",
-  });
+  const token = await getValidToken();
+  if (token) {
+    return await apiRequest<void>(`/cart/items/${itemId}`, {
+      method: "DELETE",
+    });
+  }
+
+  const entries = await getGuestCartEntries();
+  const filtered = entries.filter((e) => e.productId !== itemId);
+  await setGuestCartEntries(filtered);
+  return { ok: true };
 }
 
 export async function clearCart(): Promise<ApiResponse<void>> {
-  return await apiRequest<void>(`/cart`, {
-    method: "DELETE",
-  });
+  const token = await getValidToken();
+  if (token) {
+    return await apiRequest<void>(`/cart`, {
+      method: "DELETE",
+    });
+  }
+
+  await setGuestCartEntries([]);
+  return { ok: true };
+}
+
+export async function mergeGuestCart(token: string): Promise<void> {
+  const entries = await getGuestCartEntries();
+  if (entries.length === 0) return;
+
+  try {
+    const res = await fetch(`${API_BASE_URL}/cart/merge`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ items: entries }),
+      cache: "no-store",
+    });
+    if (res.ok) {
+      await setGuestCartEntries([]);
+    }
+  } catch {
+    // ignore
+  }
 }
 
 // 3. Promotions

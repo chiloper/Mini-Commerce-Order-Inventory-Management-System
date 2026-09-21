@@ -127,7 +127,12 @@ export default function AdminConsoleLoginPage() {
   return (
     <div className="max-w-md mx-auto my-12 px-4">
       <div className="rounded-2xl border border-divider bg-surface p-6 sm:p-8 shadow-md flex flex-col gap-5">
-        <div className="text-center">
+        <div className="text-center flex flex-col items-center">
+          <div className="w-12 h-12 rounded-full border border-accent-2/30 bg-accent-2/10 text-accent-2 flex items-center justify-center mb-2 shadow-xs">
+            <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+            </svg>
+          </div>
           <span className="text-[11px] uppercase tracking-wider font-mono font-bold text-accent-2">
             Restricted Area · ผู้ดูแลระบบเท่านั้น
           </span>
@@ -193,12 +198,19 @@ export default function AdminConsoleLoginPage() {
             onClick={handleQuickFill}
             className="w-full p-3 rounded-xl border border-divider bg-bg hover:bg-surface text-left transition-colors cursor-pointer flex items-center justify-between shadow-2xs group"
           >
-            <div>
-              <div className="text-xs font-bold text-accent-2 group-hover:underline">
-                Admin Account
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full bg-accent-2/10 text-accent-2 flex items-center justify-center shrink-0 border border-accent-2/20">
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                </svg>
               </div>
-              <div className="text-[11px] text-neutral-800 font-medium">
-                admin@minicommerce.com (รหัสผ่าน: admin123)
+              <div>
+                <div className="text-xs font-bold text-accent-2 group-hover:underline">
+                  Admin Account
+                </div>
+                <div className="text-[11px] text-neutral-800 font-medium">
+                  admin@minicommerce.com (รหัสผ่าน: admin123)
+                </div>
               </div>
             </div>
             <span className="text-xs font-bold text-accent shrink-0 ml-2">

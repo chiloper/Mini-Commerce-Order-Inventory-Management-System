@@ -1,11 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { loginAction, registerAction } from "../../lib/auth/actions";
 
 export default function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectParam = searchParams.get("redirect") || "/list";
+
   const [tab, setTab] = useState<"login" | "register">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -31,7 +34,8 @@ export default function LoginForm() {
         setError(res.error || "เกิดข้อผิดพลาด");
         setLoading(false);
       } else {
-        router.push("/list");
+        window.dispatchEvent(new Event("cart-updated"));
+        router.push(redirectParam);
         router.refresh();
       }
     } catch (err: unknown) {
@@ -60,11 +64,30 @@ export default function LoginForm() {
         borderRadius: "var(--radius-md)",
       }}
     >
-      <div style={{ textAlign: "center" }}>
+      <div style={{ textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center" }}>
+        <div
+          style={{
+            width: "48px",
+            height: "48px",
+            borderRadius: "9999px",
+            border: "1px solid var(--color-divider)",
+            background: "var(--color-bg)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "var(--color-accent)",
+            marginBottom: "8px",
+          }}
+        >
+          <svg style={{ width: "24px", height: "24px" }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+            <circle cx="12" cy="7" r="4" />
+          </svg>
+        </div>
         <p style={{ margin: "0 0 4px", fontSize: "11px", letterSpacing: ".14em", textTransform: "uppercase", color: "var(--color-accent-700)", fontWeight: 600 }}>
           Mini Commerce
         </p>
-        <h2 style={{ margin: 0, fontSize: "28px" }}>
+        <h2 style={{ margin: 0, fontSize: "26px" }}>
           {tab === "login" ? "เข้าสู่ระบบ" : "สมัครสมาชิกใหม่"}
         </h2>
       </div>
@@ -152,16 +175,52 @@ export default function LoginForm() {
         <p style={{ margin: "0 0 var(--space-2)", textAlign: "center", fontSize: "11px", letterSpacing: ".1em", textTransform: "uppercase", color: "var(--color-neutral-700)", fontWeight: 600 }}>
           บัญชีสำหรับทดสอบระบบ (Quick Demo)
         </p>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-2)" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
           <button
             type="button"
             onClick={() => handleQuickFill("admin@minicommerce.com", "admin123")}
             className="btn btn-secondary"
-            style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", padding: "8px 10px", textAlign: "left" }}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "10px",
+              padding: "10px 12px",
+              width: "100%",
+              textAlign: "left",
+              cursor: "pointer",
+            }}
           >
-            <span style={{ fontSize: "12px", fontWeight: 700, color: "var(--color-accent-700)" }}>Admin ผู้ดูแล</span>
-            <span style={{ fontSize: "11px", color: "var(--color-neutral-700)", textOverflow: "ellipsis", overflow: "hidden", maxWidth: "160px" }}>
-              admin@minicommerce.com
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0 }}>
+              <div
+                style={{
+                  width: "34px",
+                  height: "34px",
+                  borderRadius: "9999px",
+                  background: "rgba(147, 51, 234, 0.12)",
+                  color: "#7e22ce",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                  border: "1px solid rgba(147, 51, 234, 0.25)",
+                }}
+              >
+                <svg style={{ width: "17px", height: "17px" }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                </svg>
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--color-accent-700)" }}>
+                  Admin ผู้ดูแลระบบ
+                </div>
+                <div style={{ fontSize: "11px", color: "var(--color-neutral-700)", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>
+                  admin@minicommerce.com · รหัส: admin123
+                </div>
+              </div>
+            </div>
+            <span style={{ fontSize: "11px", fontWeight: 600, color: "var(--color-accent)", flexShrink: 0, whiteSpace: "nowrap" }}>
+              กรอกข้อมูล →
             </span>
           </button>
 
@@ -169,11 +228,48 @@ export default function LoginForm() {
             type="button"
             onClick={() => handleQuickFill("customer@minicommerce.com", "customer123")}
             className="btn btn-secondary"
-            style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", padding: "8px 10px", textAlign: "left" }}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "10px",
+              padding: "10px 12px",
+              width: "100%",
+              textAlign: "left",
+              cursor: "pointer",
+            }}
           >
-            <span style={{ fontSize: "12px", fontWeight: 700, color: "var(--color-accent-2-700)" }}>Customer ลูกค้า</span>
-            <span style={{ fontSize: "11px", color: "var(--color-neutral-700)", textOverflow: "ellipsis", overflow: "hidden", maxWidth: "160px" }}>
-              customer@minicommerce.com
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0 }}>
+              <div
+                style={{
+                  width: "34px",
+                  height: "34px",
+                  borderRadius: "9999px",
+                  background: "rgba(37, 99, 235, 0.12)",
+                  color: "#2563eb",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                  border: "1px solid rgba(37, 99, 235, 0.25)",
+                }}
+              >
+                <svg style={{ width: "16px", height: "16px" }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
+                </svg>
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--color-accent-2-700)" }}>
+                  Customer ลูกค้าทั่วไป
+                </div>
+                <div style={{ fontSize: "11px", color: "var(--color-neutral-700)", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>
+                  customer@minicommerce.com · รหัส: customer123
+                </div>
+              </div>
+            </div>
+            <span style={{ fontSize: "11px", fontWeight: 600, color: "var(--color-accent)", flexShrink: 0, whiteSpace: "nowrap" }}>
+              กรอกข้อมูล →
             </span>
           </button>
         </div>
