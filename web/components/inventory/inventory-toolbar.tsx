@@ -129,7 +129,7 @@ export default function InventoryToolbar({
               }`}
               onClick={() => onFilterChange("archived")}
             >
-              เก็บถาวร
+              Archive
             </button>
           </div>
 

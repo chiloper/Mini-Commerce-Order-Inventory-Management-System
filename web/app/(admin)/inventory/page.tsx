@@ -118,7 +118,7 @@ export default function AdminInventoryPage() {
     let barColor = "bg-accent";
 
     if (isArchived) {
-      statusLabel = "เก็บถาวร (Archive)";
+      statusLabel = "Archive";
       statusCls = "bg-neutral-800 text-white border border-neutral-700";
       barColor = "bg-neutral-400";
     } else if (isOut) {
