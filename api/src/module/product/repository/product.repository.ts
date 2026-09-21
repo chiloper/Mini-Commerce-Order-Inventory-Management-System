@@ -101,8 +101,12 @@ export class ProductRepository {
 
     if (query.stockFilter === "low") {
       where.stock = { gt: 0, lte: 10 };
+      where.isActive = true;
     } else if (query.stockFilter === "out") {
       where.stock = 0;
+      where.isActive = true;
+    } else if (query.stockFilter === "archived") {
+      where.isActive = false;
     }
 
     const total = await this.prisma.product.count({ where });
@@ -202,9 +206,10 @@ export class ProductRepository {
   }
 
   async delete(id: number): Promise<Product> {
-    return await this.prisma.product.update({
-      where: { id },
-      data: { isActive: false },
+    return await this.prisma.$transaction(async (tx) => {
+      await tx.cartItem.deleteMany({ where: { productId: id } });
+      await tx.orderItem.updateMany({ where: { productId: id }, data: { productId: null } });
+      return await tx.product.delete({ where: { id } });
     });
   }
 

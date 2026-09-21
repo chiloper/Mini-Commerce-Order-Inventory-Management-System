@@ -56,13 +56,27 @@ function ProductDetailContent() {
     );
   }
 
-  if (!product) {
+  if (!product || product.isActive === false) {
     return (
-      <div className="py-24 text-center">
-        <p className="text-lg text-neutral-700 mb-4">ไม่พบสินค้านี้</p>
+      <div className="py-24 text-center max-w-md mx-auto px-4">
+        <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-neutral-100 flex items-center justify-center text-neutral-400 border border-divider">
+          <svg className="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <polyline points="21 8 21 21 3 21 3 8" />
+            <rect x="1" y="3" width="22" height="5" />
+            <line x1="10" y1="12" x2="14" y2="12" />
+          </svg>
+        </div>
+        <p className="text-lg font-bold text-text mb-1">
+          {product?.isActive === false ? "สินค้านี้ถูกเก็บถาวรแล้ว (Archived)" : "ไม่พบสินค้านี้"}
+        </p>
+        <p className="text-xs text-neutral-600 mb-6">
+          {product?.isActive === false
+            ? "สินค้ารายการนี้ถูกจัดเก็บออกจากระบบหน้าร้าน และไม่พร้อมจำหน่ายในขณะนี้"
+            : "ไม่พบสินค้าที่คุณค้นหา หรือสินค้านี้อาจถูกลบออกจากระบบแล้ว"}
+        </p>
         <Link
           href="/list"
-          className="inline-block px-5 py-2.5 rounded-lg text-sm font-medium bg-neutral-800 text-white hover:bg-neutral-900 transition-colors"
+          className="inline-block px-5 py-2.5 rounded-xl text-xs font-bold bg-neutral-900 text-white hover:bg-neutral-800 transition-colors shadow-2xs"
         >
           กลับไปหน้ารายการสินค้า
         </Link>

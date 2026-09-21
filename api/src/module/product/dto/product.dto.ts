@@ -112,5 +112,5 @@ export class QueryProductDto {
 
   @IsOptional()
   @IsString()
-  stockFilter?: "all" | "low" | "out";
+  stockFilter?: "all" | "low" | "out" | "archived";
 }

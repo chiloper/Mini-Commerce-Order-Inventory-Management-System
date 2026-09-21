@@ -46,7 +46,7 @@ export default function AdminInventoryPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<"all" | "low" | "out">("all");
+  const [filter, setFilter] = useState<"all" | "low" | "out" | "archived">("all");
   const [search, setSearch] = useState<string>("");
   const [page, setPage] = useState<number>(1);
   const [limit] = useState<number>(10);
@@ -81,6 +81,7 @@ export default function AdminInventoryPage() {
   const [editError, setEditError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [archiving, setArchiving] = useState(false);
   const [uploadingEditImage, setUploadingEditImage] = useState(false);
   const [uploadEditStatus, setUploadEditStatus] = useState<string>("");
 
@@ -157,7 +158,7 @@ export default function AdminInventoryPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
-  const handleFilterChange = (newFilter: "all" | "low" | "out") => {
+  const handleFilterChange = (newFilter: "all" | "low" | "out" | "archived") => {
     setFilter(newFilter);
     setPage(1);
     loadData(1, newFilter, search);
@@ -182,14 +183,19 @@ export default function AdminInventoryPage() {
 
   const decorate = (p: Product) => {
     const avail = Math.max(0, (p.stock || 0) - (p.held || 0));
-    const isLow = (p.stock || 0) > 0 && avail <= 10;
-    const isOut = (p.stock || 0) === 0;
+    const isArchived = p.isActive === false;
+    const isLow = !isArchived && (p.stock || 0) > 0 && avail <= 10;
+    const isOut = !isArchived && (p.stock || 0) === 0;
 
     let statusLabel = "พร้อมส่ง";
     let statusCls = "bg-emerald-100 text-emerald-900 border border-emerald-300";
     let barColor = "bg-accent";
 
-    if (isOut) {
+    if (isArchived) {
+      statusLabel = "เก็บถาวร (Archive)";
+      statusCls = "bg-neutral-800 text-white border border-neutral-700";
+      barColor = "bg-neutral-400";
+    } else if (isOut) {
       statusLabel = "หมดชั่วคราว";
       statusCls = "bg-neutral-200 text-neutral-800 border border-neutral-300";
       barColor = "bg-neutral-400";
@@ -204,13 +210,14 @@ export default function AdminInventoryPage() {
     return {
       ...p,
       avail,
+      isArchived,
       isLow,
       isOut,
       statusLabel,
       statusCls,
       barW,
       barColor,
-      rowBg: isLow ? "bg-rose-50/50" : "",
+      rowBg: isArchived ? "opacity-75 bg-neutral-100/40" : isLow ? "bg-rose-50/50" : "",
     };
   };
 
@@ -378,10 +385,77 @@ export default function AdminInventoryPage() {
     setSaving(false);
   };
 
-  // Handle Delete Product
+  // Set selected image as main (move to index 0)
+  const handleSetMainCreateImage = (idx: number) => {
+    if (idx === 0) return;
+    setCreateImages((prev) => {
+      const selected = prev[idx];
+      const remaining = prev.filter((_, i) => i !== idx);
+      return [selected, ...remaining];
+    });
+  };
+
+  const handleSetMainEditImage = (idx: number) => {
+    if (idx === 0) return;
+    setEditImages((prev) => {
+      const selected = prev[idx];
+      const remaining = prev.filter((_, i) => i !== idx);
+      return [selected, ...remaining];
+    });
+  };
+
+  // Handle Archive Product (Active -> Archived)
+  const handleArchiveProduct = async () => {
+    if (!editProduct) return;
+    if (
+      !confirm(
+        `คุณต้องการเก็บสินค้า "${editProduct.name}" (${editProduct.sku}) ถาวร (Archive) ใช่หรือไม่?\n\n* สินค้านี้จะถูกซ่อนจากหน้าร้านและไม่สามารถสั่งซื้อได้ แต่ประวัติคำสั่งซื้อเดิมยังคงอยู่ครบถ้วน`
+      )
+    ) {
+      return;
+    }
+    setArchiving(true);
+    const res = await updateProductAction(editProduct.id, { isActive: false });
+    if (res.ok) {
+      setEditProduct(null);
+      await loadData(page, filter, search);
+    } else {
+      setEditError(res.error || "ไม่สามารถจัดเก็บสินค้าได้");
+    }
+    setArchiving(false);
+  };
+
+  // Handle Unarchive Product (Archived -> Active)
+  const handleUnarchiveProduct = async () => {
+    if (!editProduct) return;
+    if (
+      !confirm(
+        `คุณต้องการนำสินค้า "${editProduct.name}" (${editProduct.sku}) กลับมาเปิดขายที่หน้าร้าน (Unarchive) ใช่หรือไม่?`
+      )
+    ) {
+      return;
+    }
+    setArchiving(true);
+    const res = await updateProductAction(editProduct.id, { isActive: true });
+    if (res.ok) {
+      setEditProduct(null);
+      await loadData(page, filter, search);
+    } else {
+      setEditError(res.error || "ไม่สามารถเปิดการขายสินค้าได้");
+    }
+    setArchiving(false);
+  };
+
+  // Handle Safe Permanent Delete Product (Only after archived)
   const handleDeleteProduct = async () => {
     if (!editProduct) return;
-    if (!confirm(`คุณต้องการลบสินค้า "${editProduct.name}" (${editProduct.sku}) ใช่หรือไม่?`)) return;
+    if (
+      !confirm(
+        `⚠️ คำเตือน: คุณต้องการลบสินค้า "${editProduct.name}" (${editProduct.sku}) อย่างถาวรใช่หรือไม่?\n\nการดำเนินการนี้จะลบข้อมูลสินค้าออกจากระบบโดยเด็ดขาดและไม่สามารถกู้คืนได้!`
+      )
+    ) {
+      return;
+    }
     setDeleting(true);
 
     const res = await deleteProductAction(editProduct.id);
@@ -508,6 +582,17 @@ export default function AdminInventoryPage() {
                 >
                   หมดชั่วคราว
                 </button>
+                <button
+                  type="button"
+                  className={`px-3 py-1.5 text-xs rounded-lg font-bold transition-all cursor-pointer whitespace-nowrap ${
+                    filter === "archived"
+                      ? "bg-neutral-800 text-white shadow-xs"
+                      : "text-neutral-700 hover:text-text hover:bg-bg"
+                  }`}
+                  onClick={() => handleFilterChange("archived")}
+                >
+                  เก็บถาวร
+                </button>
               </div>
 
               {/* Product Search Box */}
@@ -572,7 +657,11 @@ export default function AdminInventoryPage() {
                       <tr
                         key={p.id}
                         className={`hover:bg-bg/50 transition-colors ${
-                          p.isLow ? "bg-rose-50/30" : ""
+                          p.isArchived
+                            ? "opacity-75 bg-neutral-100/50"
+                            : p.isLow
+                            ? "bg-rose-50/30"
+                            : ""
                         }`}
                       >
                         <td className="py-3.5 px-3.5 whitespace-nowrap">
@@ -764,41 +853,56 @@ export default function AdminInventoryPage() {
                     แกลเลอรีรูปภาพสินค้า ({createImages.length} รูป)
                   </label>
                   <span className="text-[11px] text-neutral-700 font-medium">
-                    *รูปแรกสุดจะถูกใช้เป็นรูปหลัก (Cover)
+                    *รูปแรกสุดคือรูปหลัก (คลิกรูปใดก็ได้เพื่อเปลี่ยนเป็นรูปหลัก)
                   </span>
                 </div>
 
                 <div className="p-3 rounded-xl border border-dashed border-divider bg-bg flex flex-col gap-2.5">
                   {/* Gallery Thumbnails List */}
                   {createImages.length > 0 ? (
-                    <div className="flex gap-2 flex-wrap items-center">
-                      {createImages.map((imgUrl, idx) => (
-                        <div
-                          key={idx}
-                          className={`relative w-16 h-16 rounded-lg overflow-hidden shrink-0 bg-surface ${
-                            idx === 0 ? "border-2 border-accent" : "border border-divider"
-                          }`}
-                        >
-                          <img
-                            src={imgUrl}
-                            alt={`Preview ${idx + 1}`}
-                            className="w-full h-full object-cover"
-                          />
-                          {idx === 0 && (
-                            <span className="absolute bottom-0 inset-x-0 bg-accent text-white text-[9px] text-center font-bold py-0.5">
-                              รูปหลัก
-                            </span>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => setCreateImages(createImages.filter((_, i) => i !== idx))}
-                            className="absolute top-1 right-1 w-4 h-4 rounded-full bg-black/70 text-white text-[9px] flex items-center justify-center cursor-pointer hover:bg-rose-600 transition-colors"
-                            title="ลบรูปนี้"
+                    <div className="flex gap-2.5 flex-wrap items-center">
+                      {createImages.map((imgUrl, idx) => {
+                        const isMain = idx === 0;
+                        return (
+                          <div
+                            key={idx}
+                            onClick={() => !isMain && handleSetMainCreateImage(idx)}
+                            className={`relative w-18 h-18 rounded-xl overflow-hidden shrink-0 bg-surface group transition-all select-none ${
+                              isMain
+                                ? "ring-2 ring-accent shadow-sm"
+                                : "border border-divider hover:ring-2 hover:ring-accent/70 hover:shadow-xs cursor-pointer"
+                            }`}
+                            title={isMain ? "รูปหลัก (Cover Image)" : "คลิกเพื่อเลือกรูปนี้เป็นรูปหลัก"}
                           >
-                            ✕
-                          </button>
-                        </div>
-                      ))}
+                            <img
+                              src={imgUrl}
+                              alt={`Preview ${idx + 1}`}
+                              className="w-full h-full object-cover"
+                            />
+                            {isMain ? (
+                              <span className="absolute bottom-0 inset-x-0 bg-accent text-white text-[9px] text-center font-bold py-0.5 shadow-2xs flex items-center justify-center gap-0.5">
+                                <span>⭐</span>
+                                <span>รูปหลัก</span>
+                              </span>
+                            ) : (
+                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-white text-[10px] font-bold transition-opacity p-1 text-center">
+                                <span>ตั้งเป็นรูปหลัก</span>
+                              </div>
+                            )}
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setCreateImages(createImages.filter((_, i) => i !== idx));
+                              }}
+                              className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/75 text-white text-[10px] flex items-center justify-center cursor-pointer hover:bg-rose-600 transition-colors z-10 shadow-xs"
+                              title="ลบรูปนี้"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        );
+                      })}
                     </div>
                   ) : (
                     <div className="text-center py-3 text-xs text-neutral-700 font-medium">
@@ -936,6 +1040,18 @@ export default function AdminInventoryPage() {
               </button>
             </div>
 
+            {editProduct.isActive === false && (
+              <div className="flex items-center gap-2.5 p-3 rounded-xl bg-neutral-900 text-neutral-100 text-xs font-semibold shadow-xs">
+                <span className="text-base shrink-0">📦</span>
+                <div className="flex-1 min-w-0">
+                  <span className="font-bold text-amber-400">สินค้านี้อยู่ในสถานะเก็บถาวร (Archived)</span>
+                  <span className="block text-neutral-300 text-[11px] mt-0.5">
+                    ถูกซ่อนจากหน้าร้านค้าและไม่สามารถสั่งซื้อได้ คุณสามารถกด &quot;นำกลับมาขาย&quot; เพื่อเปิดขายใหม่ หรือ &quot;ลบสินค้าถาวร&quot; เพื่อลบออกจากระบบ
+                  </span>
+                </div>
+              </div>
+            )}
+
             {editError && (
               <div className="p-3 rounded-xl bg-rose-100 border border-rose-300 text-rose-950 text-xs font-semibold">
                 {editError}
@@ -1008,41 +1124,56 @@ export default function AdminInventoryPage() {
                     รูปภาพสินค้า (อัปโหลดได้หลายรูปพร้อมกัน)
                   </label>
                   <span className="text-[11px] text-neutral-700 font-medium">
-                    {editImages.length} รูป (รูปแรกเป็นรูปหลัก)
+                    {editImages.length} รูป (คลิกรูปใดก็ได้เพื่อเปลี่ยนเป็นรูปหลัก)
                   </span>
                 </div>
 
                 <div className="p-3 rounded-xl border border-dashed border-divider bg-bg flex flex-col gap-2.5">
                   {/* Thumbnails list */}
                   {editImages.length > 0 ? (
-                    <div className="flex gap-2 flex-wrap items-center">
-                      {editImages.map((imgUrl, idx) => (
-                        <div
-                          key={idx}
-                          className={`relative w-16 h-16 rounded-lg overflow-hidden shrink-0 bg-surface ${
-                            idx === 0 ? "border-2 border-accent" : "border border-divider"
-                          }`}
-                        >
-                          <img
-                            src={imgUrl}
-                            alt={`Preview ${idx + 1}`}
-                            className="w-full h-full object-cover"
-                          />
-                          {idx === 0 && (
-                            <span className="absolute bottom-0 inset-x-0 bg-accent text-white text-[9px] text-center font-bold py-0.5">
-                              รูปหลัก
-                            </span>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => setEditImages(editImages.filter((_, i) => i !== idx))}
-                            className="absolute top-1 right-1 w-4 h-4 rounded-full bg-black/70 text-white text-[9px] flex items-center justify-center cursor-pointer hover:bg-rose-600 transition-colors"
-                            title="ลบรูปนี้"
+                    <div className="flex gap-2.5 flex-wrap items-center">
+                      {editImages.map((imgUrl, idx) => {
+                        const isMain = idx === 0;
+                        return (
+                          <div
+                            key={idx}
+                            onClick={() => !isMain && handleSetMainEditImage(idx)}
+                            className={`relative w-18 h-18 rounded-xl overflow-hidden shrink-0 bg-surface group transition-all select-none ${
+                              isMain
+                                ? "ring-2 ring-accent shadow-sm"
+                                : "border border-divider hover:ring-2 hover:ring-accent/70 hover:shadow-xs cursor-pointer"
+                            }`}
+                            title={isMain ? "รูปหลัก (Cover Image)" : "คลิกเพื่อเลือกรูปนี้เป็นรูปหลัก"}
                           >
-                            ✕
-                          </button>
-                        </div>
-                      ))}
+                            <img
+                              src={imgUrl}
+                              alt={`Preview ${idx + 1}`}
+                              className="w-full h-full object-cover"
+                            />
+                            {isMain ? (
+                              <span className="absolute bottom-0 inset-x-0 bg-accent text-white text-[9px] text-center font-bold py-0.5 shadow-2xs flex items-center justify-center gap-0.5">
+                                <span>⭐</span>
+                                <span>รูปหลัก</span>
+                              </span>
+                            ) : (
+                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-white text-[10px] font-bold transition-opacity p-1 text-center">
+                                <span>ตั้งเป็นรูปหลัก</span>
+                              </div>
+                            )}
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditImages(editImages.filter((_, i) => i !== idx));
+                              }}
+                              className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/75 text-white text-[10px] flex items-center justify-center cursor-pointer hover:bg-rose-600 transition-colors z-10 shadow-xs"
+                              title="ลบรูปนี้"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        );
+                      })}
                     </div>
                   ) : (
                     <div className="text-center py-3 text-xs text-neutral-700 font-medium">
@@ -1133,28 +1264,69 @@ export default function AdminInventoryPage() {
                 />
               </div>
 
-              <div className="flex justify-between items-center pt-2 border-t border-divider">
-                <button
-                  type="button"
-                  onClick={handleDeleteProduct}
-                  disabled={saving || deleting || uploadingEditImage}
-                  className="text-xs font-bold text-rose-700 hover:bg-rose-50 px-3 py-2 rounded-xl transition-colors cursor-pointer disabled:opacity-50"
-                >
-                  {deleting ? "กำลังลบ..." : "ลบสินค้านี้"}
-                </button>
+              <div className="flex justify-between items-center pt-3 border-t border-divider flex-wrap gap-2">
+                {editProduct.isActive === false ? (
+                  <div className="flex items-center gap-2">
+                    {/* Delete Permanently (Only when archived) */}
+                    <button
+                      type="button"
+                      onClick={handleDeleteProduct}
+                      disabled={saving || deleting || archiving || uploadingEditImage}
+                      className="inline-flex items-center gap-1.5 text-xs font-bold text-rose-700 hover:text-white bg-rose-50 hover:bg-rose-600 border border-rose-300 hover:border-rose-600 px-3.5 py-2 rounded-xl transition-all cursor-pointer disabled:opacity-50 shadow-2xs"
+                      title="ลบข้อมูลสินค้านี้ออกจากระบบอย่างถาวร (ไม่สามารถย้อนกลับได้)"
+                    >
+                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polyline points="3 6 5 6 21 6" />
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                      </svg>
+                      <span>{deleting ? "กำลังลบถาวร..." : "ลบสินค้าถาวร"}</span>
+                    </button>
+
+                    {/* Unarchive / Restore */}
+                    <button
+                      type="button"
+                      onClick={handleUnarchiveProduct}
+                      disabled={saving || deleting || archiving || uploadingEditImage}
+                      className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 px-3.5 py-2 rounded-xl transition-all cursor-pointer disabled:opacity-50 shadow-2xs"
+                      title="เปิดการขายสินค้านี้อีกครั้งและแสดงที่หน้าร้าน"
+                    >
+                      <svg className="w-4 h-4 text-emerald-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polyline points="9 14 4 9 9 4" />
+                        <path d="M20 20v-7a4 4 0 0 0-4-4H4" />
+                      </svg>
+                      <span>{archiving ? "กำลังเปิดการขาย..." : "นำกลับมาขาย"}</span>
+                    </button>
+                  </div>
+                ) : (
+                  /* Active Product: Show Archive button instead of Delete */
+                  <button
+                    type="button"
+                    onClick={handleArchiveProduct}
+                    disabled={saving || deleting || archiving || uploadingEditImage}
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-300 px-3.5 py-2 rounded-xl transition-all cursor-pointer disabled:opacity-50 shadow-2xs"
+                    title="เก็บสินค้านี้เข้าคลังถาวร (ไม่แสดงที่หน้าร้านค้า)"
+                  >
+                    <svg className="w-4 h-4 text-amber-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <polyline points="21 8 21 21 3 21 3 8" />
+                      <rect x="1" y="3" width="22" height="5" />
+                      <line x1="10" y1="12" x2="14" y2="12" />
+                    </svg>
+                    <span>{archiving ? "กำลังเก็บถาวร..." : "เก็บถาวร (Archive)"}</span>
+                  </button>
+                )}
 
                 <div className="flex gap-2">
                   <button
                     type="button"
                     onClick={() => setEditProduct(null)}
-                    disabled={saving || uploadingEditImage}
+                    disabled={saving || uploadingEditImage || archiving || deleting}
                     className="px-4 py-2 text-xs font-semibold rounded-xl border border-divider bg-surface hover:bg-bg text-text transition-colors cursor-pointer"
                   >
                     ยกเลิก
                   </button>
                   <button
                     type="submit"
-                    disabled={saving || uploadingEditImage}
+                    disabled={saving || uploadingEditImage || archiving || deleting}
                     className="px-5 py-2 text-xs font-bold rounded-xl bg-accent hover:bg-accent-600 active:bg-accent-700 !text-white transition-all shadow-xs cursor-pointer disabled:opacity-50"
                   >
                     {saving ? "กำลังบันทึก..." : "บันทึกการแก้ไข"}
