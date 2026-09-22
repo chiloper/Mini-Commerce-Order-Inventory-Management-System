@@ -42,6 +42,18 @@ export default function AdminSidebar() {
       ),
     },
     {
+      href: "/category",
+      label: "หมวดหมู่สินค้า",
+      icon: (
+        <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <rect x="3" y="3" width="7" height="7" rx="1" />
+          <rect x="14" y="3" width="7" height="7" rx="1" />
+          <rect x="14" y="14" width="7" height="7" rx="1" />
+          <rect x="3" y="14" width="7" height="7" rx="1" />
+        </svg>
+      ),
+    },
+    {
       href: "/promotion",
       label: "โปรโมชั่น",
       icon: (

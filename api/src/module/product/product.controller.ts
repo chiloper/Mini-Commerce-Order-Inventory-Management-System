@@ -7,6 +7,7 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Put,
   Query,
 } from "@nestjs/common";
 import { ProductService } from "./product.service";
@@ -15,6 +16,8 @@ import {
   CreateProductDto,
   QueryProductDto,
   UpdateProductDto,
+  UpdateCategoryDto,
+  BulkImportProductsDto,
 } from "./dto/product.dto";
 import { Public } from "../auth/decorators/public.decorator";
 import { Roles } from "../auth/decorators/role.decorator";
@@ -63,7 +66,7 @@ export class ProductController {
 
   @Public()
   @Get("categories")
-  getCategories(): Promise<Category[]> {
+  getCategories(): Promise<(Category & { _count?: { products: number } })[]> {
     return this.productService.getCategories();
   }
 
@@ -71,5 +74,26 @@ export class ProductController {
   @Post("categories")
   createCategory(@Body() dto: CreateCategoryDto): Promise<Category> {
     return this.productService.createCategory(dto);
+  }
+
+  @Roles("admin")
+  @Put("categories/:id")
+  updateCategory(
+    @Param("id", ParseIntPipe) id: number,
+    @Body() dto: UpdateCategoryDto
+  ): Promise<Category> {
+    return this.productService.updateCategory(id, dto);
+  }
+
+  @Roles("admin")
+  @Delete("categories/:id")
+  deleteCategory(@Param("id", ParseIntPipe) id: number): Promise<Category> {
+    return this.productService.deleteCategory(id);
+  }
+
+  @Roles("admin")
+  @Post("bulk-import")
+  bulkImport(@Body() dto: BulkImportProductsDto) {
+    return this.productService.bulkImport(dto);
   }
 }

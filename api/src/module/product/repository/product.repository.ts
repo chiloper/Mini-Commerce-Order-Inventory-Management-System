@@ -213,8 +213,13 @@ export class ProductRepository {
     });
   }
 
-  async getCategories(): Promise<Category[]> {
+  async getCategories(): Promise<(Category & { _count?: { products: number } })[]> {
     return await this.prisma.category.findMany({
+      include: {
+        _count: {
+          select: { products: true },
+        },
+      },
       orderBy: { id: "asc" },
     });
   }
@@ -223,5 +228,156 @@ export class ProductRepository {
     return await this.prisma.category.create({
       data: { name },
     });
+  }
+
+  async updateCategory(id: number, name: string): Promise<Category> {
+    return await this.prisma.category.update({
+      where: { id },
+      data: { name },
+    });
+  }
+
+  async deleteCategory(id: number): Promise<Category> {
+    return await this.prisma.$transaction(async (tx) => {
+      // Unlink products assigned to this category before deleting
+      await tx.product.updateMany({
+        where: { catagoryId: id },
+        data: { catagoryId: null },
+      });
+      return await tx.category.delete({
+        where: { id },
+      });
+    });
+  }
+
+  async bulkUpsertProducts(items: Array<{
+    sku: string;
+    name: string;
+    categoryName?: string;
+    price: number;
+    stock: number;
+    isActive?: boolean;
+    imageUrl?: string;
+  }>) {
+    const allCategories = await this.prisma.category.findMany();
+    const categoryMap = new Map<string, number>();
+    for (const cat of allCategories) {
+      categoryMap.set(cat.name.trim().toLowerCase(), cat.id);
+    }
+
+    let createdCount = 0;
+    let updatedCount = 0;
+    let failedCount = 0;
+    const errors: Array<{ row: number; sku?: string; name?: string; message: string }> = [];
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      const rowNum = i + 1;
+
+      // 1. Validation
+      const sku = (item.sku || "").trim();
+      const name = (item.name || "").trim();
+
+      if (!sku) {
+        errors.push({ row: rowNum, message: "รหัสสินค้า (SKU) ห้ามเว้นว่าง" });
+        failedCount++;
+        continue;
+      }
+
+      if (!name) {
+        errors.push({ row: rowNum, sku, message: "ชื่อสินค้าห้ามเว้นว่าง" });
+        failedCount++;
+        continue;
+      }
+
+      const price = Number(item.price);
+      if (isNaN(price) || price < 0) {
+        errors.push({ row: rowNum, sku, name, message: "ราคาขายต้องเป็นตัวเลขที่ไม่ติดลบ" });
+        failedCount++;
+        continue;
+      }
+
+      const stock = Number(item.stock);
+      if (isNaN(stock) || stock < 0) {
+        errors.push({ row: rowNum, sku, name, message: "จำนวนสต็อกต้องเป็นตัวเลขที่ไม่ติดลบ" });
+        failedCount++;
+        continue;
+      }
+
+      // 2. Category validation (User requested: Error case if category not found in DB)
+      let matchedCategoryId: number | null = null;
+      if (item.categoryName && item.categoryName.trim()) {
+        const catNameKey = item.categoryName.trim().toLowerCase();
+        const foundId = categoryMap.get(catNameKey);
+        if (!foundId) {
+          errors.push({
+            row: rowNum,
+            sku,
+            name,
+            message: `ไม่พบหมวดหมู่ "${item.categoryName.trim()}" ในระบบ กรุณาสร้างหมวดหมู่นี้ในระบบก่อนนำเข้า`,
+          });
+          failedCount++;
+          continue;
+        }
+        matchedCategoryId = foundId;
+      }
+
+      // 3. Upsert
+      try {
+        const existing = await this.prisma.product.findUnique({
+          where: { sku },
+        });
+
+        const img = item.imageUrl ? item.imageUrl.trim() : null;
+        const imagesStr = img ? JSON.stringify([img]) : null;
+
+        if (existing) {
+          // Overwrite stock and fields per user's decision
+          await this.prisma.product.update({
+            where: { id: existing.id },
+            data: {
+              name,
+              price: Math.round(price),
+              stock: Math.round(stock),
+              catagoryId: matchedCategoryId !== null ? matchedCategoryId : existing.catagoryId,
+              isActive: item.isActive !== undefined ? item.isActive : existing.isActive,
+              ...(img ? { imageUrl: img, images: imagesStr } : {}),
+            },
+          });
+          updatedCount++;
+        } else {
+          await this.prisma.product.create({
+            data: {
+              sku,
+              name,
+              price: Math.round(price),
+              stock: Math.round(stock),
+              catagoryId: matchedCategoryId,
+              isActive: item.isActive !== undefined ? item.isActive : true,
+              imageUrl: img,
+              images: imagesStr,
+            },
+          });
+          createdCount++;
+        }
+      } catch (err: any) {
+        errors.push({
+          row: rowNum,
+          sku,
+          name,
+          message: err?.message || "เกิดข้อผิดพลาดในการบันทึกข้อมูล",
+        });
+        failedCount++;
+      }
+    }
+
+    return {
+      totalRows: items.length,
+      successCount: createdCount + updatedCount,
+      createdCount,
+      updatedCount,
+      failedCount,
+      errors,
+    };
   }
 }

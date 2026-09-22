@@ -81,7 +81,7 @@ export default function InventoryTable({
       <table className="w-full text-left text-xs border-collapse min-w-[700px]">
         <thead>
           <tr className="border-b border-divider text-neutral-700 font-bold tracking-wider uppercase text-[11px] bg-bg/40">
-            <th className="py-3.5 px-3.5 whitespace-nowrap">SKU (แก้ไข)</th>
+            <th className="py-3.5 px-3.5 whitespace-nowrap">SKU</th>
             <th className="py-3.5 px-3.5 min-w-[180px]">สินค้า</th>
             <th className="py-3.5 px-3.5 whitespace-nowrap">หมวดหมู่</th>
             <th className="py-3.5 px-3.5 whitespace-nowrap">ราคา</th>

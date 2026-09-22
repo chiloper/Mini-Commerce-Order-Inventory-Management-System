@@ -1,7 +1,7 @@
 import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { ProductRepository } from "./repository/product.repository";
 import { ProductWithCategory } from "./types/product.types";
-import { CreateCategoryDto, CreateProductDto, QueryProductDto, UpdateProductDto } from "./dto/product.dto";
+import { CreateCategoryDto, CreateProductDto, QueryProductDto, UpdateProductDto, UpdateCategoryDto, BulkImportProductsDto } from "./dto/product.dto";
 import { Category, Product } from "../../generated/prisma/client";
 
 @Injectable()
@@ -50,11 +50,23 @@ export class ProductService {
     return await this.productRepository.delete(id);
   }
 
-  async getCategories(): Promise<Category[]> {
+  async getCategories(): Promise<(Category & { _count?: { products: number } })[]> {
     return await this.productRepository.getCategories();
   }
 
   async createCategory(dto: CreateCategoryDto): Promise<Category> {
     return await this.productRepository.createCategory(dto.name);
+  }
+
+  async updateCategory(id: number, dto: UpdateCategoryDto): Promise<Category> {
+    return await this.productRepository.updateCategory(id, dto.name);
+  }
+
+  async deleteCategory(id: number): Promise<Category> {
+    return await this.productRepository.deleteCategory(id);
+  }
+
+  async bulkImport(dto: BulkImportProductsDto) {
+    return await this.productRepository.bulkUpsertProducts(dto.items);
   }
 }

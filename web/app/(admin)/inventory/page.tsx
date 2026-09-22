@@ -9,6 +9,7 @@ import InventoryTable, { DecoratedProduct } from "../../../components/inventory/
 import CreateProductModal from "../../../components/inventory/create-product-modal";
 import EditProductModal from "../../../components/inventory/edit-product-modal";
 import RefillStockModal from "../../../components/inventory/refill-stock-modal";
+import ImportProductModal from "../../../components/inventory/import-product-modal";
 import {
   getProducts,
   getPaginatedProducts,
@@ -33,6 +34,7 @@ export default function AdminInventoryPage() {
 
   // Modals state
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [editProduct, setEditProduct] = useState<Product | null>(null);
   const [refillProduct, setRefillProduct] = useState<Product | null>(null);
 
@@ -249,6 +251,7 @@ export default function AdminInventoryPage() {
             search={search}
             onSearchChange={setSearch}
             onOpenCreate={() => setShowCreateModal(true)}
+            onOpenImport={() => setShowImportModal(true)}
             onExportCsv={handleExportCsv}
             exporting={exporting}
             loading={loading}
@@ -275,6 +278,15 @@ export default function AdminInventoryPage() {
         isOpen={showCreateModal}
         categories={categories}
         onClose={() => setShowCreateModal(false)}
+        onSuccess={() => loadData(1, filter, search)}
+      />
+
+      {/* Modular Import Product Modal (Excel / CSV) */}
+      <ImportProductModal
+        isOpen={showImportModal}
+        categories={categories}
+        existingProducts={products}
+        onClose={() => setShowImportModal(false)}
         onSuccess={() => loadData(1, filter, search)}
       />
 

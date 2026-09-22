@@ -1,4 +1,4 @@
-import { IsArray, IsBoolean, IsInt, IsNotEmpty, IsOptional, IsString, Min } from "class-validator";
+import { IsArray, IsBoolean, IsInt, IsNotEmpty, IsOptional, IsString, Min, ValidateNested } from "class-validator";
 import { Type } from "class-transformer";
 
 export class CreateProductDto {
@@ -77,6 +77,56 @@ export class CreateCategoryDto {
   @IsString()
   @IsNotEmpty()
   name!: string;
+}
+
+export class UpdateCategoryDto {
+  @IsString()
+  @IsNotEmpty()
+  name!: string;
+}
+
+export class BulkImportProductItemDto {
+  @IsString()
+  @IsNotEmpty()
+  sku!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  name!: string;
+
+  @IsOptional()
+  @IsString()
+  categoryName?: string;
+
+  @IsInt()
+  @Min(0)
+  @Type(() => Number)
+  price!: number;
+
+  @IsInt()
+  @Min(0)
+  @Type(() => Number)
+  stock!: number;
+
+  @IsOptional()
+  @IsBoolean()
+  @Type(() => Boolean)
+  isActive?: boolean;
+
+  @IsOptional()
+  @IsString()
+  imageUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+}
+
+export class BulkImportProductsDto {
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => BulkImportProductItemDto)
+  items!: BulkImportProductItemDto[];
 }
 
 export class QueryProductDto {

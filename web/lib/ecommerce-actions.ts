@@ -130,6 +130,50 @@ export async function getCategories(): Promise<Category[]> {
   return res.data || [];
 }
 
+export async function createCategoryAction(name: string): Promise<ApiResponse<Category>> {
+  return await apiRequest<Category>(`/categories`, {
+    method: "POST",
+    body: JSON.stringify({ name }),
+  });
+}
+
+export async function updateCategoryAction(id: number, name: string): Promise<ApiResponse<Category>> {
+  return await apiRequest<Category>(`/categories/${id}`, {
+    method: "PUT",
+    body: JSON.stringify({ name }),
+  });
+}
+
+export async function deleteCategoryAction(id: number): Promise<ApiResponse<void>> {
+  return await apiRequest<void>(`/categories/${id}`, {
+    method: "DELETE",
+  });
+}
+
+export interface BulkImportResult {
+  totalRows: number;
+  successCount: number;
+  createdCount: number;
+  updatedCount: number;
+  failedCount: number;
+  errors: Array<{ row: number; sku?: string; name?: string; message: string }>;
+}
+
+export async function bulkImportProductsAction(items: Array<{
+  sku: string;
+  name: string;
+  categoryName?: string;
+  price: number;
+  stock: number;
+  isActive?: boolean;
+  imageUrl?: string;
+}>): Promise<ApiResponse<BulkImportResult>> {
+  return await apiRequest<BulkImportResult>(`/bulk-import`, {
+    method: "POST",
+    body: JSON.stringify({ items }),
+  });
+}
+
 export async function createProductAction(
   data: CreateProductInput
 ): Promise<ApiResponse<Product>> {

@@ -11,6 +11,7 @@ interface InventoryToolbarProps {
   search: string;
   onSearchChange: (s: string) => void;
   onOpenCreate: () => void;
+  onOpenImport: () => void;
   onExportCsv: () => void;
   exporting: boolean;
   loading: boolean;
@@ -25,6 +26,7 @@ export default function InventoryToolbar({
   search,
   onSearchChange,
   onOpenCreate,
+  onOpenImport,
   onExportCsv,
   exporting,
   loading,
@@ -42,6 +44,25 @@ export default function InventoryToolbar({
           </h2>
         </div>
         <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap">
+          {/* Import Stock and Products Button */}
+          <button
+            type="button"
+            onClick={onOpenImport}
+            disabled={loading}
+            title="นำเข้าสินค้าและสต็อกผ่านไฟล์ Excel (.xlsx) หรือ CSV (.csv)"
+            className="inline-flex items-center justify-center gap-1.5 px-3.5 sm:px-4 py-2 rounded-xl border border-divider bg-surface hover:bg-bg text-text text-xs sm:text-sm font-bold transition-all shadow-2xs cursor-pointer shrink-0"
+          >
+            <svg className="w-4 h-4 text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            <span>นำเข้าสินค้า</span>
+            <span className="px-1.5 py-0.2 rounded-full bg-accent-100 text-[10px] font-mono text-accent-900 border border-accent-200">
+              Excel / CSV
+            </span>
+          </button>
+
           {/* Export All Stock to CSV */}
           <button
             type="button"
