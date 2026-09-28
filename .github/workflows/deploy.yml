@@ -36,6 +36,7 @@ jobs:
       - name: Build and Export Static Site
         env:
           NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL || secrets.NEXT_PUBLIC_API_URL }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           cd web
           npm run build
