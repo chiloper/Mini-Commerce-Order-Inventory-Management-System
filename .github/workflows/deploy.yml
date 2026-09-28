@@ -40,6 +40,7 @@ jobs:
         run: |
           cd web
           npm run build
+          touch out/.nojekyll
 
       - name: Upload Pages Artifact
         uses: actions/upload-pages-artifact@v3

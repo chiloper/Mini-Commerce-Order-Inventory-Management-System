@@ -288,6 +288,7 @@ API ที่รองรับ Pagination ต้องส่ง Response กล
      - **กฎเหล็กของ GitHub Pages Subpath (Base Path & Trailing Slash)**:
        - ต้องระบุ `basePath: "/<repository-name>"` และ `assetPrefix` ใน `next.config.ts` เพื่อป้องกันปัญหา **CSS หลุด/UI เพี้ยน** และปัญหาคลิกลิงก์หลุดไปที่ Root Domain (เช่น `https://<username>.github.io/login` ซึ่งจะติด 404)
        - ต้องเปิด `trailingSlash: true` เพื่อให้ Next.js Export โครงสร้างเป็น `<route>/index.html` (เช่น `login/index.html`) บน GitHub Pages ทำให้เปิดหน้าเว็บผ่าน URL ได้โดยไม่เจอ 404
+       - **กฎสำคัญเรื่อง `.nojekyll`**: GitHub Pages จะรัน Jekyll ตามค่าเริ่มต้น ซึ่ง Jekyll จะข้าม/เพิกเฉยต่อโฟลเดอร์ที่ขึ้นต้นด้วย `_` (เช่น `_next/`) ทำให้ไฟล์ CSS/JS ทั้งหมดกลายเป็น 404 ดังนั้น **ต้องมีไฟล์ `.nojekyll`** อยู่ใน `web/public/.nojekyll` และสร้างไว้ที่ `web/out/.nojekyll` เสมอ เพื่อปิดการทำงานของ Jekyll
      - **CORS บน Backend API**: ใน `api/src/main.ts` ต้องเปิดรับ Origin ที่ลงท้ายด้วย `.github.io` เพื่อให้ Browser สามารถเรียก API จาก GitHub Pages ได้อย่างราบรื่น
      - ตั้งค่า CI/CD ที่ `.github/workflows/deploy.yml` รองรับการ Build จากโฟลเดอร์ `web/` และส่งออกไฟล์จาก `web/out` ไปยัง GitHub Pages
      - ตัวแปรเชื่อมต่อ Backend ใช้ `NEXT_PUBLIC_API_URL` รับค่าจาก GitHub Repository Variables หรือ Secrets โดยตรง
