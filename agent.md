@@ -280,6 +280,14 @@ API ที่รองรับ Pagination ต้องส่ง Response กล
    - **ความปลอดภัยในการลบหมวดหมู่ (Safe Category Deletion)**:
      - เมื่อลบหมวดหมู่ ระบบจะไม่ลบสินค้าที่อยู่ภายใน แต่จะทำการปลดความสัมพันธ์ (`catagoryId = null`) อย่างปลอดภัยภายใต้ Transaction ก่อน แล้วจึงลบหมวดหมู่นั้น เพื่อป้องกันปัญหา Foreign Key Constraint และไม่ทำให้ข้อมูลสินค้าสูญหาย
 
+8. **การสร้าง Static Export สำหรับ GitHub Pages และ GitHub Actions CI/CD (`feature/gh-pages-cicd`)**:
+   - ในโหมด Static Export (`output: "export"` ใน `web/next.config.ts`) จะไม่มี Node.js Runtime เซิร์ฟเวอร์ ดังนั้น:
+     - ห้ามใช้ `"use server"` (Server Actions) หรือ `cookies()` จาก `next/headers` ในโค้ด เพราะ Next.js Compiler จะฟ้อง Error ทันที
+     - การจัดการ Access Token และ Refresh Token ให้ใช้ `document.cookie` ร่วมกับ `localStorage` เป็น Client-side Fallback
+     - หน้า `web/app/account/page.tsx` ต้องทำงานแบบ `"use client"` และตรวจสอบสถานะผู้ใช้ด้วย `useEffect` ควบคู่กับ `router.push("/login")`
+     - ตั้งค่า CI/CD ที่ `.github/workflows/deploy.yml` รองรับการ Build จากโฟลเดอร์ `web/` และส่งออกไฟล์จาก `web/out` ไปยัง GitHub Pages
+     - ตัวแปรเชื่อมต่อ Backend ใช้ `NEXT_PUBLIC_API_URL` รับค่าจาก GitHub Repository Variables หรือ Secrets โดยตรง
+
 ---
 
 ## 5. ระบบโปรโมชั่นและส่วนลด (Promotion & Discount Rules)

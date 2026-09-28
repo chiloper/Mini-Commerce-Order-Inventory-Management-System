@@ -1,4 +1,3 @@
-import "server-only";
 import { API_BASE_URL } from "./config";
 import { AuthResult, AuthTokens, PublicUser } from "./type";
 

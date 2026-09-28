@@ -1,10 +1,7 @@
-"use server";
-
 import { API_BASE_URL } from "./auth/config";
 import { readAccesToken, readRefreshToken, writeSession } from "./auth/session";
 import { needsRefresh } from "./auth/tokens";
 import { refreshSession } from "./auth/refresh";
-import { cookies } from "next/headers";
 import type {
   ApiResponse,
   Product,
@@ -210,34 +207,30 @@ export interface GuestCartEntry {
 }
 
 export async function getGuestCartEntries(): Promise<GuestCartEntry[]> {
-  const cookieStore = await cookies();
-  const raw = cookieStore.get(GUEST_CART_COOKIE)?.value;
-  if (!raw) return [];
-  try {
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) {
-      return parsed.filter(
-        (it) => typeof it.productId === "number" && typeof it.quantity === "number" && it.quantity > 0
-      );
+  if (typeof window !== "undefined") {
+    const raw = localStorage.getItem(GUEST_CART_COOKIE);
+    if (!raw) return [];
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed.filter(
+          (it) => typeof it.productId === "number" && typeof it.quantity === "number" && it.quantity > 0
+        );
+      }
+    } catch {
+      // ignore
     }
-  } catch {
-    // ignore
   }
   return [];
 }
 
 export async function setGuestCartEntries(entries: GuestCartEntry[]): Promise<void> {
-  const cookieStore = await cookies();
-  if (entries.length === 0) {
-    cookieStore.delete(GUEST_CART_COOKIE);
-  } else {
-    cookieStore.set(GUEST_CART_COOKIE, JSON.stringify(entries), {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 7 * 24 * 60 * 60,
-    });
+  if (typeof window !== "undefined") {
+    if (entries.length === 0) {
+      localStorage.removeItem(GUEST_CART_COOKIE);
+    } else {
+      localStorage.setItem(GUEST_CART_COOKIE, JSON.stringify(entries));
+    }
   }
 }
 

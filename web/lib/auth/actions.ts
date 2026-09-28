@@ -1,5 +1,3 @@
-"use server";
-
 import { loginRequest, logoutRequest, registerRequest } from "./api";
 import { clearSession, getCurrentUser, readRefreshToken, writeSession } from "./session";
 import { PublicUser } from "./type";

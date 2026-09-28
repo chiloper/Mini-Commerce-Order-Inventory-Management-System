@@ -1,18 +1,48 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { getCurrentUser } from "../../lib/auth/session";
-import { redirect } from "next/navigation";
 import { getOrders } from "../../lib/ecommerce-actions";
 import Link from "next/link";
 import type { Order } from "@/types/ecommerce";
+import type { PublicUser } from "@/lib/auth/type";
 import AccountOrdersList from "../../components/account-orders-list";
 
-export default async function AccountPage() {
-  const user = await getCurrentUser();
+export default function AccountPage() {
+  const router = useRouter();
+  const [user, setUser] = useState<PublicUser | null>(null);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  if (!user) {
-    redirect("/login");
+  useEffect(() => {
+    let mounted = true;
+    getCurrentUser().then((u) => {
+      if (!mounted) return;
+      if (!u) {
+        router.push("/login");
+        return;
+      }
+      setUser(u);
+      getOrders().then((ordList) => {
+        if (!mounted) return;
+        setOrders(ordList);
+        setLoading(false);
+      });
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [router]);
+
+  if (loading || !user) {
+    return (
+      <div className="mx-auto max-w-6xl px-4 py-16 text-center text-sm text-neutral-600">
+        กำลังโหลดข้อมูลบัญชีผู้ใช้...
+      </div>
+    );
   }
 
-  const orders: Order[] = await getOrders();
   const displayName = user.email.split("@")[0];
 
   return (

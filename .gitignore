@@ -1,1 +1,8 @@
 /data
+node_modules/
+.env
+.env.*
+!.env.example
+web/.next/
+web/out/
+api/dist/

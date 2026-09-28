@@ -1,4 +1,3 @@
-import "server-only"
 import { refreshRequest } from "./api";
 import { AuthResult, AuthTokens } from "./type";
 

@@ -1,4 +1,3 @@
-import "server-only"
 import { REFRESH_SKEW_SECONDS } from "./config";
 
 interface AccessTokenClaims {
@@ -8,15 +7,34 @@ interface AccessTokenClaims {
   exp?: number;
 }
 
+function decodeBase64Url(str: string): string {
+  if (typeof Buffer !== "undefined") {
+    return Buffer.from(str, "base64url").toString("utf8");
+  }
+  try {
+    let base64 = str.replace(/-/g, "+").replace(/_/g, "/");
+    while (base64.length % 4) {
+      base64 += "=";
+    }
+    return decodeURIComponent(
+      atob(base64)
+        .split("")
+        .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+        .join("")
+    );
+  } catch {
+    return "";
+  }
+}
 
 export function decodeAccessToken(token: string): AccessTokenClaims | null {
   const segments = token.split(".");
 
   if (segments.length !== 3) {
-    return null
+    return null;
   }
   try {
-    const payload = Buffer.from(segments[1], "base64url").toString("utf8");
+    const payload = decodeBase64Url(segments[1]);
     const claims: unknown = JSON.parse(payload);
 
     return typeof claims === "object" && claims !== null
