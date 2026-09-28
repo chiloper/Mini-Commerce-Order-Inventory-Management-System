@@ -1,0 +1,407 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState, useRef } from "react";
+import { getSessionUserAction, logoutAction } from "../lib/auth/actions";
+import { PublicUser } from "../lib/auth/type";
+import { getCart } from "../lib/ecommerce-actions";
+import CartDrawer from "../components/cart-drawer";
+
+export default function SiteHeader() {
+  const pathname = usePathname();
+  const router = useRouter();
+  const [user, setUser] = useState<PublicUser | null>(null);
+  const [cartCount, setCartCount] = useState<number>(0);
+  const [cartDrawerOpen, setCartDrawerOpen] = useState<boolean>(false);
+  const [accountMenuOpen, setAccountMenuOpen] = useState<boolean>(false);
+  const accountMenuRef = useRef<HTMLDivElement>(null);
+
+  const isAdminPath =
+    pathname.startsWith("/admin") ||
+    pathname.startsWith("/dashboard") ||
+    pathname.startsWith("/inventory") ||
+    pathname.startsWith("/order") ||
+    pathname.startsWith("/promotion");
+
+  const displayName = user?.email ? user.email.split("@")[0] : "";
+
+  const fetchCartCount = async () => {
+    try {
+      const c = await getCart();
+      setCartCount(c?.totalQuantity || 0);
+    } catch {
+      // ignore
+    }
+  };
+
+  useEffect(() => {
+    getSessionUserAction().then((u) => setUser(u));
+    fetchCartCount();
+
+    const handleCartUpdate = () => fetchCartCount();
+    const handleOpenCart = () => setCartDrawerOpen(true);
+
+    window.addEventListener("cart-updated", handleCartUpdate);
+    window.addEventListener("open-cart", handleOpenCart);
+
+    return () => {
+      window.removeEventListener("cart-updated", handleCartUpdate);
+      window.removeEventListener("open-cart", handleOpenCart);
+    };
+  }, [pathname]);
+
+  // Click outside and escape key listener for account popover
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (accountMenuRef.current && !accountMenuRef.current.contains(event.target as Node)) {
+        setAccountMenuOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setAccountMenuOpen(false);
+      }
+    };
+
+    if (accountMenuOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener("keydown", handleKeyDown);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [accountMenuOpen]);
+
+  const handleLogout = async () => {
+    await logoutAction();
+    setUser(null);
+    setAccountMenuOpen(false);
+    if (isAdminPath) {
+      router.push("/admin/console");
+    } else {
+      router.push("/");
+    }
+    router.refresh();
+  };
+
+  return (
+    <>
+      {/* ========================================================================= */}
+      {/* STOREFRONT HEADER (Full-Bleed 100% Width Sticky Header)                  */}
+      {/* ========================================================================= */}
+      {!isAdminPath && (
+        <header className="w-full border-b border-divider bg-surface/90 backdrop-blur-md sticky top-0 z-40">
+          <div className="w-full px-3.5 sm:px-6 lg:px-8 2xl:px-12 py-2.5 sm:py-3 flex items-center justify-between gap-2 sm:gap-4">
+            {/* Left: Brand & Main Navigation */}
+            <div className="flex items-center gap-3 sm:gap-6 min-w-0">
+              <Link
+                href="/"
+                className="text-base sm:text-xl font-bold tracking-tight text-text hover:text-accent transition-colors flex items-center gap-1.5 shrink-0"
+              >
+                <span>Mini Commerce</span>
+              </Link>
+              <Link
+                href="/list"
+                className={`text-xs sm:text-sm font-medium transition-colors hidden sm:inline-block ${
+                  pathname === "/" || pathname === "/list"
+                    ? "text-accent font-semibold"
+                    : "text-neutral-800 hover:text-text"
+                }`}
+              >
+                สินค้าทั้งหมด
+              </Link>
+            </div>
+
+            {/* Right: Auth User Popover & Cart Button */}
+            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+              {user ? (
+                <div className="relative" ref={accountMenuRef}>
+                  <button
+                    type="button"
+                    onClick={() => setAccountMenuOpen((prev) => !prev)}
+                    className="flex items-center gap-1.5 sm:gap-2 cursor-pointer select-none group"
+                    aria-expanded={accountMenuOpen}
+                    aria-haspopup="true"
+                  >
+                    {/* Customer display name in front */}
+                    <span className="font-semibold text-text text-xs sm:text-sm max-w-[85px] sm:max-w-[140px] truncate group-hover:text-accent transition-colors">
+                      {displayName}
+                    </span>
+
+                    {/* Circular User Icon Avatar */}
+                    <div
+                      className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full border bg-surface group-hover:bg-bg flex items-center justify-center shrink-0 shadow-xs transition-all ${
+                        accountMenuOpen
+                          ? "border-accent ring-2 ring-accent/30 text-accent"
+                          : "border-divider text-neutral-800 group-hover:text-accent group-hover:border-accent/40"
+                      }`}
+                    >
+                      <svg
+                        className="w-4 h-4 sm:w-4.5 sm:h-4.5"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.2"
+                      >
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                        <circle cx="12" cy="7" r="4" />
+                      </svg>
+                    </div>
+                  </button>
+
+                  {/* Account Popover Menu */}
+                  {accountMenuOpen && (
+                    <div className="absolute right-0 mt-2 w-64 sm:w-72 max-w-[calc(100vw-24px)] rounded-2xl border border-divider bg-surface shadow-xl py-3 px-3 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                      {/* Account Summary */}
+                      <div className="flex items-center gap-3 pb-3 border-b border-divider px-1">
+                        <div className="w-10 h-10 rounded-full bg-accent text-white flex items-center justify-center font-bold text-base shadow-xs shrink-0">
+                          {displayName.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-sm text-text truncate">
+                              {displayName}
+                            </span>
+                            <span
+                              className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
+                                user.role === "admin"
+                                  ? "bg-purple-100 text-purple-800"
+                                  : "bg-emerald-100 text-emerald-800"
+                              }`}
+                            >
+                              {user.role === "admin" ? "ผู้ดูแลระบบ" : "สมาชิก"}
+                            </span>
+                          </div>
+                          <p className="text-xs text-neutral-800 font-medium truncate" title={user.email}>
+                            {user.email}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Menu Links */}
+                      <div className="py-2 flex flex-col gap-1">
+                        <Link
+                          href="/account"
+                          onClick={() => setAccountMenuOpen(false)}
+                          className="flex items-center gap-2.5 px-3 py-2 text-xs sm:text-sm font-medium text-text hover:bg-bg rounded-xl transition-colors"
+                        >
+                          <svg
+                            className="w-4 h-4 text-neutral-700"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                          >
+                            <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+                            <line x1="3" y1="6" x2="21" y2="6" />
+                            <path d="M16 10a4 4 0 0 1-8 0" />
+                          </svg>
+                          <span>ประวัติคำสั่งซื้อของฉัน</span>
+                        </Link>
+
+                        {user.role === "admin" && (
+                          <Link
+                            href="/admin/console"
+                            onClick={() => setAccountMenuOpen(false)}
+                            className="flex items-center gap-2.5 px-3 py-2 text-xs sm:text-sm font-medium text-purple-800 hover:bg-purple-50 rounded-xl transition-colors"
+                          >
+                            <svg
+                              className="w-4 h-4 text-purple-700"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                            >
+                              <rect x="3" y="3" width="7" height="7" />
+                              <rect x="14" y="3" width="7" height="7" />
+                              <rect x="14" y="14" width="7" height="7" />
+                              <rect x="3" y="14" width="7" height="7" />
+                            </svg>
+                            <span>ระบบจัดการหลังร้าน (Admin)</span>
+                          </Link>
+                        )}
+                      </div>
+
+                      {/* Sign Out Button */}
+                      <div className="pt-2 border-t border-divider">
+                        <button
+                          type="button"
+                          onClick={handleLogout}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 text-xs sm:text-sm font-medium text-rose-700 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
+                        >
+                          <svg
+                            className="w-4 h-4 text-rose-600"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                          >
+                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                            <polyline points="16 17 21 12 16 7" />
+                            <line x1="21" y1="12" x2="9" y2="12" />
+                          </svg>
+                          <span>ออกจากระบบ</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <Link
+                  href="/login"
+                  className="flex items-center gap-1.5 sm:gap-2 cursor-pointer select-none group"
+                  title="เข้าสู่ระบบ"
+                >
+                  {/* Action text in front */}
+                  <span className="font-semibold text-text text-xs sm:text-sm group-hover:text-accent transition-colors">
+                    เข้าสู่ระบบ
+                  </span>
+                  {/* Circular User Icon */}
+                  <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full border border-divider bg-surface group-hover:bg-bg group-hover:border-accent/40 text-neutral-800 group-hover:text-accent flex items-center justify-center shrink-0 shadow-xs transition-all">
+                    <svg
+                      className="w-4 h-4 sm:w-4.5 sm:h-4.5"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.2"
+                    >
+                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                      <circle cx="12" cy="7" r="4" />
+                    </svg>
+                  </div>
+                </Link>
+              )}
+
+              {/* Cart Drawer Button */}
+              <button
+                type="button"
+                onClick={() => setCartDrawerOpen(true)}
+                className="relative flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-accent text-white hover:bg-accent-600 active:bg-accent-700 cursor-pointer shadow-xs transition-all shrink-0 group"
+                aria-label={`ตะกร้าสินค้า (${cartCount} รายการ)`}
+                title={`ตะกร้าสินค้า (${cartCount} รายการ)`}
+              >
+                <svg
+                  className="w-4 h-4 sm:w-5 sm:h-5 transition-transform group-hover:scale-110"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.2"
+                >
+                  <path d="M3 4h2.5l2.2 10.5h9.6L19 7H6" />
+                  <circle cx="9" cy="19" r="1.5" />
+                  <circle cx="17" cy="19" r="1.5" />
+                </svg>
+                <span
+                  className={`absolute -top-1 -right-1 sm:-top-1.5 sm:-right-1.5 px-1 min-w-[18px] h-[18px] sm:min-w-[20px] sm:h-[20px] flex items-center justify-center rounded-full text-[10px] sm:text-[11px] font-bold border-2 border-surface shadow-xs leading-none ${
+                    cartCount > 0 ? "bg-rose-500 text-white" : "bg-neutral-600 text-white"
+                  }`}
+                >
+                  {cartCount > 99 ? "99+" : cartCount}
+                </span>
+              </button>
+            </div>
+          </div>
+        </header>
+      )}
+
+      {/* ========================================================================= */}
+      {/* ADMIN HEADER (Shown only when in Admin Console)                           */}
+      {/* ========================================================================= */}
+      {isAdminPath && (
+        <div className="w-full border-b border-divider bg-surface sticky top-0 z-40 shadow-xs">
+          {/* Top Magenta Accent Line indicating Admin Mode */}
+          <div className="h-1 bg-accent-2 w-full" />
+
+          <div className="w-full px-4 sm:px-6 lg:px-8 2xl:px-12 py-3">
+            {/* Top row: Title and Admin user actions */}
+            <div className="flex items-center justify-between gap-4 flex-wrap">
+              <div>
+                <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-text m-0">
+                  ระบบจัดการหลังร้านและคลังสินค้า
+                </h1>
+              </div>
+
+              <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+                {user && (
+                  <div className="flex items-center gap-1.5 sm:gap-2 select-none">
+                    {/* Admin Name in front */}
+                    <div className="flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-text">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                      <span className="text-neutral-700 hidden xs:inline">Admin:</span>
+                      <span className="max-w-[95px] sm:max-w-[160px] truncate" title={user.email}>
+                        {user.email.split("@")[0]}
+                      </span>
+                    </div>
+
+                    {/* Circular Admin Avatar */}
+                    <div
+                      className="w-9 h-9 sm:w-10 sm:h-10 rounded-full border border-divider bg-surface text-purple-800 flex items-center justify-center shrink-0 shadow-xs"
+                      title={`ผู้ดูแลระบบ: ${user.email}`}
+                    >
+                      <svg
+                        className="w-4 h-4 sm:w-4.5 sm:h-4.5"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.2"
+                      >
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                      </svg>
+                    </div>
+                  </div>
+                )}
+
+                {/* Circular Storefront Button */}
+                <Link
+                  href="/"
+                  className="relative flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-full border border-divider bg-surface hover:bg-bg text-neutral-800 hover:text-accent active:bg-neutral-200 cursor-pointer shadow-xs transition-all shrink-0 group"
+                  aria-label="กลับไปหน้าร้านค้า"
+                  title="กลับไปหน้าร้านค้า"
+                >
+                  <svg
+                    className="w-4 h-4 sm:w-4.5 sm:h-4.5 transition-transform group-hover:scale-110"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.2"
+                  >
+                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                    <polyline points="9 22 9 12 15 12 15 22" />
+                  </svg>
+                </Link>
+
+                {/* Circular Logout Button */}
+                {user && (
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="relative flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-full border border-rose-200 bg-surface hover:bg-rose-50 text-rose-600 hover:text-rose-700 active:bg-rose-100 cursor-pointer shadow-xs transition-all shrink-0 group"
+                    aria-label="ออกจากระบบ"
+                    title="ออกจากระบบ"
+                  >
+                    <svg
+                      className="w-4 h-4 sm:w-4.5 sm:h-4.5 transition-transform group-hover:scale-110"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.2"
+                    >
+                      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                      <polyline points="16 17 21 12 16 7" />
+                      <line x1="21" y1="12" x2="9" y2="12" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Slide-over Cart Drawer */}
+      <CartDrawer isOpen={cartDrawerOpen} onClose={() => setCartDrawerOpen(false)} />
+    </>
+  );
+}
