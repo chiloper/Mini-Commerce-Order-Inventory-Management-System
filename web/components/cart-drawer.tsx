@@ -30,6 +30,7 @@ interface AppliedPromo {
 export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
   const [user, setUser] = useState<PublicUser | null>(() => getCachedUser());
   const [authLoading, setAuthLoading] = useState<boolean>(() => !getCachedUser());
+  const [mounted, setMounted] = useState<boolean>(false);
   const [cart, setCart] = useState<Cart>({ items: [], totalQuantity: 0, subtotal: 0 });
   const [loading, setLoading] = useState(false);
   const [promoCode, setPromoCode] = useState("");
@@ -63,6 +64,7 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
   };
 
   useEffect(() => {
+    setMounted(true);
     const unsub = subscribeAuthState((u) => {
       setUser(u);
       setAuthLoading(false);
@@ -501,7 +503,7 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
             </div>
 
             {/* Checkout Button: Requires login before checking out */}
-            {authLoading && !user ? (
+            {!mounted || (authLoading && !user) ? (
               <div className="w-full min-h-[46px] flex items-center justify-center gap-2 rounded-xl text-sm font-semibold bg-neutral-200/70 text-neutral-500 animate-pulse select-none" aria-hidden="true">
                 <span>กำลังตรวจสอบข้อมูล...</span>
               </div>

@@ -15,6 +15,7 @@ export default function SiteHeader() {
   const router = useRouter();
   const [user, setUser] = useState<PublicUser | null>(() => getCachedUser());
   const [authLoading, setAuthLoading] = useState<boolean>(() => !getCachedUser());
+  const [mounted, setMounted] = useState<boolean>(false);
   const [cartCount, setCartCount] = useState<number>(0);
   const [cartDrawerOpen, setCartDrawerOpen] = useState<boolean>(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState<boolean>(false);
@@ -41,6 +42,7 @@ export default function SiteHeader() {
   };
 
   useEffect(() => {
+    setMounted(true);
     const unsub = subscribeAuthState((u) => {
       setUser(u);
       setAuthLoading(false);
@@ -135,8 +137,8 @@ export default function SiteHeader() {
             </div>
 
             {/* Right: Auth User Popover & Cart Button */}
-            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-              {authLoading && !user ? (
+            <div className="flex items-center gap-2 sm:gap-3 shrink-0" suppressHydrationWarning>
+              {!mounted || (authLoading && !user) ? (
                 <div className="flex items-center gap-1.5 sm:gap-2 select-none animate-pulse" aria-hidden="true">
                   <div className="w-14 sm:w-16 h-4 bg-neutral-200/70 rounded-md hidden xs:block" />
                   <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-neutral-200/70 shrink-0" />
@@ -369,10 +371,10 @@ export default function SiteHeader() {
             </div>
 
             {/* Right: View Storefront Link & Admin Profile Popover */}
-            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            <div className="flex items-center gap-2 sm:gap-3 shrink-0" suppressHydrationWarning>
 
               {/* Admin Profile Trigger */}
-              {authLoading && !user ? (
+              {!mounted || (authLoading && !user) ? (
                 <div className="flex items-center gap-1.5 sm:gap-2 select-none animate-pulse" aria-hidden="true">
                   <div className="w-16 sm:w-20 h-4 bg-purple-200/60 rounded-md hidden xs:block" />
                   <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-purple-200/60 shrink-0" />
