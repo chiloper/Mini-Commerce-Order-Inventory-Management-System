@@ -236,11 +236,12 @@ export default function AdminInventoryPage() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-6 sm:pt-8 pb-12 sm:pb-16">
-      <div className="flex flex-col md:flex-row min-h-[840px] bg-bg rounded-2xl shadow-md overflow-hidden border border-divider">
-        <AdminSidebar />
+    <div className="flex flex-col md:flex-row min-h-screen bg-bg text-text">
+      {/* Sidebar Navigation */}
+      <AdminSidebar />
 
-        <main className="flex-1 p-4 sm:p-6 flex flex-col gap-6 min-w-0">
+      {/* Main Content Area */}
+      <main className="flex-1 p-4 sm:p-6 lg:p-8 flex flex-col gap-6 max-w-7xl mx-auto w-full">
           {/* Modular Toolbar */}
           <InventoryToolbar
             total={total}
@@ -271,7 +272,6 @@ export default function AdminInventoryPage() {
             onOpenRefill={setRefillProduct}
           />
         </main>
-      </div>
 
       {/* Modular Create Product Modal */}
       <CreateProductModal
