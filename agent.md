@@ -302,16 +302,19 @@ API ที่รองรับ Pagination ต้องส่ง Response กล
    - เมื่อผู้ใช้ใส่โค้ดในตะกร้าสินค้าสำเร็จ ระบบจะส่งต่อโค้ดไปยังหน้า Checkout ผ่าน URL Parameter `?promo=...` และ `sessionStorage` เพื่อให้มีผลต่อเนื่องทันที
    - รองรับการกดปุ่ม `Enter` ในช่องกรอกโค้ด และมีปุ่ม `✕ ลบ` เพื่อยกเลิกโค้ดได้ตลอดเวลา
 
-3. **ความสอดคล้องของ Layout และ Navbar ในระบบจัดการหลังร้าน (Admin Unified Layout & Navbar Consistency - v1.0.1 Hotfix)**:
+3. **ความสอดคล้องของ Layout และ Navbar ในระบบจัดการหลังร้าน (Admin Unified Layout & Navbar Consistency - v1.0.2 Hotfix)**:
    - **มาตรฐานโครงสร้าง Layout**: ทุกหน้าของผู้ดูแลระบบ (`/dashboard`, `/order`, `/inventory`, `/category`, `/promotion`) ต้องใช้โครงสร้างเดียวกันแบบ Flush Edge สอดรับกับหน้าจอ:
      - Outer Container: `<div className="flex flex-col md:flex-row min-h-screen bg-bg text-text">`
      - Sidebar ด้านซ้าย: `<AdminSidebar />` ชิดขอบซ้าย ยืดเต็มความสูง (`min-h-screen`) พร้อม System Health Card ที่ด้านล่าง
      - Main Content Area: `<main className="flex-1 p-4 sm:p-6 lg:p-8 flex flex-col gap-6 max-w-7xl mx-auto w-full">`
      - ❌ **ข้อห้าม**: ห้ามห่อหน้าหลังร้านด้วยการ์ดลอย (`max-w-7xl mx-auto px-4 ... rounded-2xl shadow-md border`) ซึ่งจะทำให้ Sidebar ถูกบีบขังอยู่ในการ์ดลอยตรงกลางจอ และเกิดขอบสีเทาว่างเปล่ารอบทิศทาง
-   - **แถบนำทางส่วนหัวที่เป็นหนึ่งเดียว (Unified Global Header)**:
-     - ทุกหน้าในระบบแสดง `SiteHeader` สากลแบบเดียวกับหน้าร้านค้า (Full-Bleed 100% Width Sticky Header)
-     - มีชื่อแบรนด์ `Mini Commerce`, ลิงก์สินค้า, ปุ่มตะกร้า และ User Avatar Popover
-     - เมื่อผู้ใช้เป็นแอดมิน Popover จะมีลิงก์เข้าสู่ Admin Console และปุ่มออกจากระบบ ซึ่งจะ Redirect ไปยัง `/admin/console` อย่างปลอดภัย
+   - **แถบนำทางส่วนหัวสำหรับผู้ดูแลระบบ (Dedicated Admin Header)**:
+     - ในหน้าหลังร้านทั้งหมด (`isAdminPath`) แถบนำทางด้านบนจะแสดงเป็น **Admin Header** เฉพาะทางอย่างชัดเจน:
+       - แสดงชื่อแบรนด์ `Mini Commerce` พร้อม Badge `Admin Console`
+       - มีปุ่ม `ดูหน้าร้านค้า` (Storefront Shortcut) สำหรับสลับกลับไปหน้าร้านค้าได้สะดวกรวดเร็ว
+       - แสดงชิปสถานะ `🟢 Admin: <name>` พร้อม Shield Avatar ทรงกลมสีม่วง
+       - เมนู Popover บรรจุเฉพาะคำสั่งของผู้ดูแลระบบ (ดูหน้าร้านค้า, ภาพรวมร้าน, ออกจากระบบ)
+       - ❌ **ข้อห้าม**: ห้ามแสดงลิงก์หน้าร้าน `"สินค้าทั้งหมด"`, ห้ามแสดงปุ่มตะกร้าสินค้า (`CartDrawer Button`), และห้ามแสดงเมนู `"ประวัติคำสั่งซื้อของฉัน"` บนหน้าจอของผู้ดูแลระบบ
 
 ---
 
