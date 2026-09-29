@@ -22,7 +22,8 @@ export default function SiteHeader() {
     pathname.startsWith("/dashboard") ||
     pathname.startsWith("/inventory") ||
     pathname.startsWith("/order") ||
-    pathname.startsWith("/promotion");
+    pathname.startsWith("/promotion") ||
+    pathname.startsWith("/category");
 
   const displayName = user?.email ? user.email.split("@")[0] : "";
 
@@ -91,8 +92,7 @@ export default function SiteHeader() {
       {/* ========================================================================= */}
       {/* STOREFRONT HEADER (Full-Bleed 100% Width Sticky Header)                  */}
       {/* ========================================================================= */}
-      {!isAdminPath && (
-        <header className="w-full border-b border-divider bg-surface/90 backdrop-blur-md sticky top-0 z-40">
+      <header className="w-full border-b border-divider bg-surface/90 backdrop-blur-md sticky top-0 z-40">
           <div className="w-full px-3.5 sm:px-6 lg:px-8 2xl:px-12 py-2.5 sm:py-3 flex items-center justify-between gap-2 sm:gap-4">
             {/* Left: Brand & Main Navigation */}
             <div className="flex items-center gap-3 sm:gap-6 min-w-0">
@@ -304,101 +304,6 @@ export default function SiteHeader() {
             </div>
           </div>
         </header>
-      )}
-
-      {/* ========================================================================= */}
-      {/* ADMIN HEADER (Shown only when in Admin Console)                           */}
-      {/* ========================================================================= */}
-      {isAdminPath && (
-        <div className="w-full border-b border-divider bg-surface sticky top-0 z-40 shadow-xs">
-          {/* Top Magenta Accent Line indicating Admin Mode */}
-          <div className="h-1 bg-accent-2 w-full" />
-
-          <div className="w-full px-4 sm:px-6 lg:px-8 2xl:px-12 py-3">
-            {/* Top row: Title and Admin user actions */}
-            <div className="flex items-center justify-between gap-4 flex-wrap">
-              <div>
-                <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-text m-0">
-                  ระบบจัดการหลังร้านและคลังสินค้า
-                </h1>
-              </div>
-
-              <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-                {user && (
-                  <div className="flex items-center gap-1.5 sm:gap-2 select-none">
-                    {/* Admin Name in front */}
-                    <div className="flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-text">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-                      <span className="text-neutral-700 hidden xs:inline">Admin:</span>
-                      <span className="max-w-[95px] sm:max-w-[160px] truncate" title={user.email}>
-                        {user.email.split("@")[0]}
-                      </span>
-                    </div>
-
-                    {/* Circular Admin Avatar */}
-                    <div
-                      className="w-9 h-9 sm:w-10 sm:h-10 rounded-full border border-divider bg-surface text-purple-800 flex items-center justify-center shrink-0 shadow-xs"
-                      title={`ผู้ดูแลระบบ: ${user.email}`}
-                    >
-                      <svg
-                        className="w-4 h-4 sm:w-4.5 sm:h-4.5"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2.2"
-                      >
-                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                      </svg>
-                    </div>
-                  </div>
-                )}
-
-                {/* Circular Storefront Button */}
-                <Link
-                  href="/"
-                  className="relative flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-full border border-divider bg-surface hover:bg-bg text-neutral-800 hover:text-accent active:bg-neutral-200 cursor-pointer shadow-xs transition-all shrink-0 group"
-                  aria-label="กลับไปหน้าร้านค้า"
-                  title="กลับไปหน้าร้านค้า"
-                >
-                  <svg
-                    className="w-4 h-4 sm:w-4.5 sm:h-4.5 transition-transform group-hover:scale-110"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.2"
-                  >
-                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                    <polyline points="9 22 9 12 15 12 15 22" />
-                  </svg>
-                </Link>
-
-                {/* Circular Logout Button */}
-                {user && (
-                  <button
-                    type="button"
-                    onClick={handleLogout}
-                    className="relative flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-full border border-rose-200 bg-surface hover:bg-rose-50 text-rose-600 hover:text-rose-700 active:bg-rose-100 cursor-pointer shadow-xs transition-all shrink-0 group"
-                    aria-label="ออกจากระบบ"
-                    title="ออกจากระบบ"
-                  >
-                    <svg
-                      className="w-4 h-4 sm:w-4.5 sm:h-4.5 transition-transform group-hover:scale-110"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2.2"
-                    >
-                      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                      <polyline points="16 17 21 12 16 7" />
-                      <line x1="21" y1="12" x2="9" y2="12" />
-                    </svg>
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Slide-over Cart Drawer */}
       <CartDrawer isOpen={cartDrawerOpen} onClose={() => setCartDrawerOpen(false)} />
