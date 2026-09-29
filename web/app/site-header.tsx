@@ -7,6 +7,7 @@ import { getSessionUserAction, logoutAction } from "../lib/auth/actions";
 import { PublicUser } from "../lib/auth/type";
 import { getCart } from "../lib/ecommerce-actions";
 import CartDrawer from "../components/cart-drawer";
+import { ADMIN_NAV_ITEMS } from "../components/admin-sidebar";
 
 export default function SiteHeader() {
   const pathname = usePathname();
@@ -15,6 +16,7 @@ export default function SiteHeader() {
   const [cartCount, setCartCount] = useState<number>(0);
   const [cartDrawerOpen, setCartDrawerOpen] = useState<boolean>(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState<boolean>(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState<boolean>(false);
   const accountMenuRef = useRef<HTMLDivElement>(null);
 
   const isAdminPath =
@@ -37,6 +39,7 @@ export default function SiteHeader() {
   };
 
   useEffect(() => {
+    setMobileSidebarOpen(false);
     getSessionUserAction().then((u) => setUser(u));
     fetchCartCount();
 
@@ -52,7 +55,7 @@ export default function SiteHeader() {
     };
   }, [pathname]);
 
-  // Click outside and escape key listener for account popover
+  // Click outside and escape key listener for account popover & mobile sidebar
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (accountMenuRef.current && !accountMenuRef.current.contains(event.target as Node)) {
@@ -62,10 +65,11 @@ export default function SiteHeader() {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setAccountMenuOpen(false);
+        setMobileSidebarOpen(false);
       }
     };
 
-    if (accountMenuOpen) {
+    if (accountMenuOpen || mobileSidebarOpen) {
       document.addEventListener("mousedown", handleClickOutside);
       document.addEventListener("keydown", handleKeyDown);
     }
@@ -73,7 +77,7 @@ export default function SiteHeader() {
       document.removeEventListener("mousedown", handleClickOutside);
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [accountMenuOpen]);
+  }, [accountMenuOpen, mobileSidebarOpen]);
 
   const handleLogout = async () => {
     await logoutAction();
@@ -316,8 +320,23 @@ export default function SiteHeader() {
           <div className="h-0.5 bg-accent-2 w-full" />
 
           <div className="w-full px-3.5 sm:px-6 lg:px-8 2xl:px-12 py-2.5 sm:py-3 flex items-center justify-between gap-2 sm:gap-4">
-            {/* Left: Brand & Admin Badge */}
-            <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+            {/* Left: Hamburger (Mobile) & Brand & Admin Badge */}
+            <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+              {/* Mobile Hamburger Button */}
+              <button
+                type="button"
+                onClick={() => setMobileSidebarOpen(true)}
+                className="flex md:hidden items-center justify-center w-8 h-8 rounded-xl border border-divider bg-surface hover:bg-neutral-100 text-neutral-800 active:bg-neutral-200 cursor-pointer shadow-2xs transition-all shrink-0"
+                aria-label="เปิดเมนูการจัดการ"
+                title="เปิดเมนูการจัดการ"
+              >
+                <svg className="w-4 h-4 text-neutral-800" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="3" y1="6" x2="21" y2="6" />
+                  <line x1="3" y1="12" x2="21" y2="12" />
+                  <line x1="3" y1="18" x2="21" y2="18" />
+                </svg>
+              </button>
+
               <Link
                 href="/dashboard"
                 className="text-base sm:text-xl font-bold tracking-tight text-text hover:text-accent transition-colors flex items-center gap-2 shrink-0"
@@ -459,6 +478,99 @@ export default function SiteHeader() {
             </div>
           </div>
         </header>
+      )}
+
+      {/* Slide-over Mobile Admin Drawer (Mobile only) */}
+      {isAdminPath && mobileSidebarOpen && (
+        <div className="fixed inset-0 z-50 md:hidden" role="dialog" aria-modal="true">
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-neutral-900/60 backdrop-blur-xs transition-opacity"
+            onClick={() => setMobileSidebarOpen(false)}
+          />
+
+          {/* Drawer Container */}
+          <div className="fixed inset-y-0 left-0 max-w-[280px] w-full bg-surface shadow-2xl flex flex-col z-10 border-r border-divider animate-in slide-in-from-left duration-200">
+            {/* Drawer Header */}
+            <div className="p-4 border-b border-divider flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold text-text">เมนูระบบหลังร้าน</span>
+                <span className="text-[9px] font-mono uppercase font-bold text-accent-2 bg-purple-100 border border-purple-200 px-1.5 py-0.5 rounded-md">
+                  Admin
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setMobileSidebarOpen(false)}
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 transition-colors"
+                aria-label="ปิดเมนู"
+              >
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Navigation links */}
+            <nav className="flex-1 overflow-y-auto p-3 space-y-1">
+              {ADMIN_NAV_ITEMS.map((item) => {
+                const isActive =
+                  pathname === item.href ||
+                  (item.href !== "/dashboard" && pathname?.startsWith(item.href));
+
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setMobileSidebarOpen(false)}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                      isActive
+                        ? "bg-purple-100/90 text-purple-900 font-semibold shadow-2xs border border-purple-200/60"
+                        : "text-neutral-700 hover:bg-neutral-100 hover:text-neutral-900"
+                    }`}
+                  >
+                    <span className="text-lg shrink-0">{item.icon}</span>
+                    <span className="truncate">{item.label}</span>
+                  </Link>
+                );
+              })}
+            </nav>
+
+            {/* Footer / Storefront link & Logout */}
+            <div className="p-3 border-t border-divider space-y-1.5 bg-neutral-50/50">
+              <Link
+                href="/products"
+                onClick={() => setMobileSidebarOpen(false)}
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-neutral-700 hover:bg-white rounded-xl border border-divider transition-all"
+              >
+                <svg className="w-4 h-4 text-neutral-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                  <polyline points="9 22 9 12 15 12 15 22" />
+                </svg>
+                <span>ดูหน้าร้านค้า</span>
+              </Link>
+
+              {user && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileSidebarOpen(false);
+                    handleLogout();
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
+                >
+                  <svg className="w-4 h-4 text-rose-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                    <polyline points="16 17 21 12 16 7" />
+                    <line x1="21" y1="12" x2="9" y2="12" />
+                  </svg>
+                  <span>ออกจากระบบ</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Slide-over Cart Drawer (Only mounted for storefront) */}

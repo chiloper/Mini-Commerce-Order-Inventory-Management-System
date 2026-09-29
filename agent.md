@@ -305,16 +305,17 @@ API ที่รองรับ Pagination ต้องส่ง Response กล
 3. **ความสอดคล้องของ Layout และ Navbar ในระบบจัดการหลังร้าน (Admin Unified Layout & Navbar Consistency - v1.0.2 Hotfix)**:
    - **มาตรฐานโครงสร้าง Layout**: ทุกหน้าของผู้ดูแลระบบ (`/dashboard`, `/order`, `/inventory`, `/category`, `/promotion`) ต้องใช้โครงสร้างเดียวกันแบบ Flush Edge สอดรับกับหน้าจอ:
      - Outer Container: `<div className="flex flex-col md:flex-row min-h-screen bg-bg text-text">`
-     - Sidebar ด้านซ้าย: `<AdminSidebar />` ชิดขอบซ้าย ยืดเต็มความสูง (`min-h-screen`) พร้อม System Health Card ที่ด้านล่าง
+     - Sidebar ด้านซ้าย: `<AdminSidebar />` ชิดขอบซ้าย ยืดเต็มความสูง (`min-h-screen`) บนหน้าจอเดสก์ท็อป (`md:flex`) และซ่อนแถบแนวนอนบนหน้าจอมือถือ (`hidden md:flex`)
      - Main Content Area: `<main className="flex-1 p-4 sm:p-6 lg:p-8 flex flex-col gap-6 max-w-7xl mx-auto w-full">`
      - ❌ **ข้อห้าม**: ห้ามห่อหน้าหลังร้านด้วยการ์ดลอย (`max-w-7xl mx-auto px-4 ... rounded-2xl shadow-md border`) ซึ่งจะทำให้ Sidebar ถูกบีบขังอยู่ในการ์ดลอยตรงกลางจอ และเกิดขอบสีเทาว่างเปล่ารอบทิศทาง
    - **แถบนำทางส่วนหัวสำหรับผู้ดูแลระบบ (Dedicated Admin Header)**:
      - ในหน้าหลังร้านทั้งหมด (`isAdminPath`) แถบนำทางด้านบนจะแสดงเป็น **Admin Header** เฉพาะทางอย่างชัดเจน:
        - แสดงชื่อแบรนด์ `Mini Commerce` พร้อม Badge `Admin Console`
+       - มีปุ่มแฮมเบอร์เกอร์ (`☰`) บนหน้าจอมือถือ (`flex md:hidden`) เพื่อเปิด Mobile Admin Drawer แบบสไลด์ออกด้านข้าง พร้อมปุ่มปิด Backdrop เบลอ และปิดอัตโนมัติเมื่อกดเปลี่ยนหน้าหรือกด `Escape`
        - มีปุ่ม `ดูหน้าร้านค้า` (Storefront Shortcut) สำหรับสลับกลับไปหน้าร้านค้าได้สะดวกรวดเร็ว
        - แสดงชิปสถานะ `🟢 Admin: <name>` พร้อม Shield Avatar ทรงกลมสีม่วง
        - เมนู Popover บรรจุเฉพาะคำสั่งของผู้ดูแลระบบ (ดูหน้าร้านค้า, ภาพรวมร้าน, ออกจากระบบ)
-       - ❌ **ข้อห้าม**: ห้ามแสดงลิงก์หน้าร้าน `"สินค้าทั้งหมด"`, ห้ามแสดงปุ่มตะกร้าสินค้า (`CartDrawer Button`), และห้ามแสดงเมนู `"ประวัติคำสั่งซื้อของฉัน"` บนหน้าจอของผู้ดูแลระบบ
+       - ❌ **ข้อห้าม**: ห้ามแสดงลิงก์หน้าร้าน `"สินค้าทั้งหมด"`, ห้ามแสดงปุ่มตะกร้าสินค้า (`CartDrawer Button`), ห้ามแสดงเมนู `"ประวัติคำสั่งซื้อของฉัน"` บนหน้าจอของผู้ดูแลระบบ, และห้ามแสดงแถบเลื่อนแนวนอนของ Sidebar ใต้ Header บนจอมือถือ
 
 ---
 
