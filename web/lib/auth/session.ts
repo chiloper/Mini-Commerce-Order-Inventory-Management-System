@@ -59,13 +59,7 @@ export async function readRefreshToken(): Promise<string | undefined> {
   return undefined;
 }
 
-<<<<<<< HEAD
 export async function getCurrentUser(): Promise<PublicUser | null> {
-  const accessToken = await readAccesToken();
-
-  if (!accessToken) {
-=======
-export const getCurrentUser = cache(async (): Promise<PublicUser | null> => {
   let accessToken = await readAccesToken();
 
   if (!accessToken) {
@@ -81,16 +75,11 @@ export const getCurrentUser = cache(async (): Promise<PublicUser | null> => {
         return refreshed.data.user;
       }
     }
->>>>>>> dev
     return null;
   }
 
   const result = await meRequest(accessToken);
 
-<<<<<<< HEAD
-  return result.ok ? result.data : null;
-}
-=======
   if (!result.ok) {
     const rt = await readRefreshToken();
     if (rt) {
@@ -108,5 +97,4 @@ export const getCurrentUser = cache(async (): Promise<PublicUser | null> => {
   }
 
   return result.data;
-});
->>>>>>> dev
+}
