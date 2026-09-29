@@ -8,6 +8,7 @@ import CreatePromotionModal from "../../../components/promotion/create-promotion
 import EditPromotionModal from "../../../components/promotion/edit-promotion-modal";
 import { getPaginatedPromotions } from "../../../lib/ecommerce-actions";
 import { getSessionUserAction } from "../../../lib/auth/actions";
+import { getCachedUser, setCachedUser } from "../../../lib/auth/auth-state";
 import type { Promotion } from "@/types/ecommerce";
 
 export default function AdminPromotionPage() {
@@ -39,12 +40,21 @@ export default function AdminPromotionPage() {
   };
 
   useEffect(() => {
+    const cached = getCachedUser();
+    if (cached && cached.role === "admin") {
+      loadData(1, search);
+    }
+
     getSessionUserAction().then((u) => {
       if (!u || u.role !== "admin") {
+        setCachedUser(null);
         router.push("/admin/console");
         return;
       }
-      loadData(1, search);
+      setCachedUser(u);
+      if (!cached || cached.role !== "admin") {
+        loadData(1, search);
+      }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);

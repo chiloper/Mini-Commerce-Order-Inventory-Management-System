@@ -9,12 +9,13 @@ import {
   checkoutAction,
 } from "../../../lib/ecommerce-actions";
 import { getSessionUserAction, loginAction } from "../../../lib/auth/actions";
+import { getCachedUser, setCachedUser } from "../../../lib/auth/auth-state";
 import { PublicUser } from "../../../lib/auth/type";
 import type { Cart, CartItem, Order } from "@/types/ecommerce";
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const [user, setUser] = useState<PublicUser | null>(null);
+  const [user, setUser] = useState<PublicUser | null>(() => getCachedUser());
   const [cart, setCart] = useState<Cart>({ items: [], totalQuantity: 0, subtotal: 0 });
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -104,6 +105,7 @@ export default function CheckoutPage() {
       getCart(),
     ]);
     setUser(currentUser);
+    setCachedUser(currentUser);
     setCart(currentCart);
     if (currentUser?.email) {
       setCustomerName(currentUser.email.split("@")[0]);
@@ -141,6 +143,7 @@ export default function CheckoutPage() {
 
     const res = await loginAction(null, formData);
     if (res.success && res.user) {
+      setCachedUser(res.user);
       setUser(res.user);
       setCustomerName(res.user.email.split("@")[0]);
       window.dispatchEvent(new Event("cart-updated"));

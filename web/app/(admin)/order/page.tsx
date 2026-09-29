@@ -10,6 +10,7 @@ import OrderDetailsModal from "../../../components/order/order-details-modal";
 import CreateOrderModal from "../../../components/order/create-order-modal";
 import { getPaginatedOrders, exportOrdersAction } from "../../../lib/ecommerce-actions";
 import { getSessionUserAction } from "../../../lib/auth/actions";
+import { getCachedUser, setCachedUser } from "../../../lib/auth/auth-state";
 import type { Order } from "@/types/ecommerce";
 
 export default function AdminOrderPage() {
@@ -77,12 +78,21 @@ export default function AdminOrderPage() {
   };
 
   useEffect(() => {
+    const cached = getCachedUser();
+    if (cached && cached.role === "admin") {
+      loadOrders(1, filter, dateRange, search);
+    }
+
     getSessionUserAction().then((u) => {
       if (!u || u.role !== "admin") {
+        setCachedUser(null);
         router.push("/admin/console");
         return;
       }
-      loadOrders(1, filter, dateRange, search);
+      setCachedUser(u);
+      if (!cached || cached.role !== "admin") {
+        loadOrders(1, filter, dateRange, search);
+      }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
