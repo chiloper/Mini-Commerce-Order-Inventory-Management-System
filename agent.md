@@ -52,6 +52,16 @@
 - ⚠️ **ทุกๆ ครั้งหลังจากทำงานเสร็จ ให้ไปอัปเดต `agent.md` เสมอ**:
   - เมื่อมีการแก้ไขโค้ด พัฒนาฟีเจอร์ใหม่ ปรับปรุงโครงสร้าง หรือค้นพบข้อจำกัด/ข้อควรระวังใหม่ๆ AI Agent จะต้องมาอัปเดตเอกสาร `agent.md` นี้ทุกครั้งก่อนส่งมอบงาน เพื่อให้คอมพิวเตอร์เครื่องอื่นหรือ Agent ถัดไปสามารถทำงานต่อได้อย่างต่อเนื่องและถูกต้อง
 
+### 1.7 การป้องกัน Flash of Unauthenticated Content (Anti-FOUC & Client Auth Caching) ⚡🔐
+- ❌ **ห้ามปล่อยให้ UI กะพริบแสดงสถานะไม่ได้เข้าสู่ระบบ (เช่น ปุ่ม "เข้าสู่ระบบ", "เข้าสู่ระบบแอดมิน", หรือ "เข้าสู่ระบบเพื่อชำระเงิน") ในจังหวะที่ผู้ใช้รีเฟรชหน้าเว็บ**:
+  - เมื่อ API ตอบสนองช้า การเริ่ม State ด้วย `user = null` โดยตรงจะทำให้ UI ตกไปเข้ากิ่ง Unauthenticated ทันทีเป็นเวลา 200ms - 2s ก่อนจะพลิกกลับมาเมื่อ API ตอบกลับ ทำให้ผู้ใช้รู้สึกว่าระบบกะพริบและเข้าใจผิดว่าหลุดจากระบบ
+- ✅ **สิ่งที่ต้องทำ**:
+  1. ใช้ฟังก์ชัน `getCachedUser()` ในโมดูล `web/lib/auth/auth-state.ts` เพื่ออ่านค่าโปรไฟล์ผู้ใช้จาก `localStorage` ทันทีตั้งแต่รอบ Render แรกสุดแบบ Synchronous
+  2. กำกับด้วยสถานะ `authLoading` ในช่วงที่ยังไม่มี Cache: หากกำลังรอตรวจสอบสิทธิ์รอบแรกจาก Server ให้แสดง Subtle Skeleton Placeholder หรือ Neutral State แทนการเรนเดอร์ปุ่มชวนล็อกอิน
+  3. ฟังก์ชัน `getCurrentUser()` ฝั่งเซิร์ฟเวอร์ (`session.ts`) ต้องรองรับการต่ออายุโทเค็นอัตโนมัติ (`refreshSession`) เมื่อ Access Token หมดอายุ เพื่อป้องกันไม่ให้คืนค่า `null` ทั้งที่ Refresh Token ยังใช้งานได้
+  4. เมื่อ Login / Register สำเร็จ ต้องเรียก `setCachedUser(user)` และเมื่อ Logout ต้องเรียก `setCachedUser(null)` เพื่อซิงก์ข้อมูลข้ามคอมโพเนนต์ด้วย Pub/Sub Event ทันที
+  5. ในหน้า Admin (`/dashboard`, `/order`, `/inventory`, `/category`, `/promotion`) หากตรวจพบว่ามี Cached User เป็น Admin ให้โหลดข้อมูลหน้าจอคู่ขนานกันทันที ไม่ต้องรอ Waterfall ของการเช็ค Session ทำให้เปิดหน้าเว็บได้เร็วขึ้นอย่างมาก
+
 ---
 
 ## 2. ภาพรวมสถาปัตยกรรมและเทคโนโลยี (Tech Stack & Architecture)
@@ -315,16 +325,20 @@ API ที่รองรับ Pagination ต้องส่ง Response กล
    - เมื่อผู้ใช้ใส่โค้ดในตะกร้าสินค้าสำเร็จ ระบบจะส่งต่อโค้ดไปยังหน้า Checkout ผ่าน URL Parameter `?promo=...` และ `sessionStorage` เพื่อให้มีผลต่อเนื่องทันที
    - รองรับการกดปุ่ม `Enter` ในช่องกรอกโค้ด และมีปุ่ม `✕ ลบ` เพื่อยกเลิกโค้ดได้ตลอดเวลา
 
-3. **ความสอดคล้องของ Layout และ Navbar ในระบบจัดการหลังร้าน (Admin Unified Layout & Navbar Consistency - v1.0.1 Hotfix)**:
+3. **ความสอดคล้องของ Layout และ Navbar ในระบบจัดการหลังร้าน (Admin Unified Layout & Navbar Consistency - v1.0.2 Hotfix)**:
    - **มาตรฐานโครงสร้าง Layout**: ทุกหน้าของผู้ดูแลระบบ (`/dashboard`, `/order`, `/inventory`, `/category`, `/promotion`) ต้องใช้โครงสร้างเดียวกันแบบ Flush Edge สอดรับกับหน้าจอ:
      - Outer Container: `<div className="flex flex-col md:flex-row min-h-screen bg-bg text-text">`
-     - Sidebar ด้านซ้าย: `<AdminSidebar />` ชิดขอบซ้าย ยืดเต็มความสูง (`min-h-screen`) พร้อม System Health Card ที่ด้านล่าง
+     - Sidebar ด้านซ้าย: `<AdminSidebar />` ชิดขอบซ้าย ยืดเต็มความสูง (`min-h-screen`) บนหน้าจอเดสก์ท็อป (`md:flex`) และซ่อนแถบแนวนอนบนหน้าจอมือถือ (`hidden md:flex`)
      - Main Content Area: `<main className="flex-1 p-4 sm:p-6 lg:p-8 flex flex-col gap-6 max-w-7xl mx-auto w-full">`
      - ❌ **ข้อห้าม**: ห้ามห่อหน้าหลังร้านด้วยการ์ดลอย (`max-w-7xl mx-auto px-4 ... rounded-2xl shadow-md border`) ซึ่งจะทำให้ Sidebar ถูกบีบขังอยู่ในการ์ดลอยตรงกลางจอ และเกิดขอบสีเทาว่างเปล่ารอบทิศทาง
-   - **แถบนำทางส่วนหัวที่เป็นหนึ่งเดียว (Unified Global Header)**:
-     - ทุกหน้าในระบบแสดง `SiteHeader` สากลแบบเดียวกับหน้าร้านค้า (Full-Bleed 100% Width Sticky Header)
-     - มีชื่อแบรนด์ `Mini Commerce`, ลิงก์สินค้า, ปุ่มตะกร้า และ User Avatar Popover
-     - เมื่อผู้ใช้เป็นแอดมิน Popover จะมีลิงก์เข้าสู่ Admin Console และปุ่มออกจากระบบ ซึ่งจะ Redirect ไปยัง `/admin/console` อย่างปลอดภัย
+   - **แถบนำทางส่วนหัวสำหรับผู้ดูแลระบบ (Dedicated Admin Header)**:
+     - ในหน้าหลังร้านทั้งหมด (`isAdminPath`) แถบนำทางด้านบนจะแสดงเป็น **Admin Header** เฉพาะทางอย่างชัดเจน:
+       - แสดงชื่อแบรนด์ `Mini Commerce` พร้อม Badge `Admin Console`
+       - มีปุ่มแฮมเบอร์เกอร์ (`☰`) บนหน้าจอมือถือ (`flex md:hidden`) เพื่อเปิด Mobile Admin Drawer แบบสไลด์ออกด้านข้าง พร้อมปุ่มปิด Backdrop เบลอ และปิดอัตโนมัติเมื่อกดเปลี่ยนหน้าหรือกด `Escape`
+       - มีปุ่ม `ดูหน้าร้านค้า` (Storefront Shortcut) สำหรับสลับกลับไปหน้าร้านค้าได้สะดวกรวดเร็ว
+       - แสดงชิปสถานะ `🟢 Admin: <name>` พร้อม Shield Avatar ทรงกลมสีม่วง
+       - เมนู Popover บรรจุเฉพาะคำสั่งของผู้ดูแลระบบ (ดูหน้าร้านค้า, ภาพรวมร้าน, ออกจากระบบ)
+       - ❌ **ข้อห้าม**: ห้ามแสดงลิงก์หน้าร้าน `"สินค้าทั้งหมด"`, ห้ามแสดงปุ่มตะกร้าสินค้า (`CartDrawer Button`), ห้ามแสดงเมนู `"ประวัติคำสั่งซื้อของฉัน"` บนหน้าจอของผู้ดูแลระบบ, และห้ามแสดงแถบเลื่อนแนวนอนของ Sidebar ใต้ Header บนจอมือถือ
 
 ---
 

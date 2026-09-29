@@ -17,6 +17,7 @@ import {
   updateProductAction,
 } from "../../../lib/ecommerce-actions";
 import { getSessionUserAction } from "../../../lib/auth/actions";
+import { getCachedUser, setCachedUser } from "../../../lib/auth/auth-state";
 import type { Product, Category } from "@/types/ecommerce";
 
 export default function AdminInventoryPage() {
@@ -77,12 +78,21 @@ export default function AdminInventoryPage() {
   };
 
   useEffect(() => {
+    const cached = getCachedUser();
+    if (cached && cached.role === "admin") {
+      loadData(1, filter, search);
+    }
+
     getSessionUserAction().then((u) => {
       if (!u || u.role !== "admin") {
+        setCachedUser(null);
         router.push("/admin/console");
         return;
       }
-      loadData(1, filter, search);
+      setCachedUser(u);
+      if (!cached || cached.role !== "admin") {
+        loadData(1, filter, search);
+      }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);

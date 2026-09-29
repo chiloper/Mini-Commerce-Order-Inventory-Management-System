@@ -1,6 +1,7 @@
 import { AuthTokens, PublicUser } from "./type";
 import { ACCESS_TOKEN_COOKIE, REFRESH_TOKEN_COOKIE } from "./config";
 import { meRequest } from "./api";
+import { refreshSession } from "./refresh";
 
 function setCookie(name: string, value: string, maxAgeSeconds: number) {
   if (typeof document !== "undefined") {
@@ -58,14 +59,54 @@ export async function readRefreshToken(): Promise<string | undefined> {
   return undefined;
 }
 
+<<<<<<< HEAD
 export async function getCurrentUser(): Promise<PublicUser | null> {
   const accessToken = await readAccesToken();
 
   if (!accessToken) {
+=======
+export const getCurrentUser = cache(async (): Promise<PublicUser | null> => {
+  let accessToken = await readAccesToken();
+
+  if (!accessToken) {
+    const rt = await readRefreshToken();
+    if (rt) {
+      const refreshed = await refreshSession(rt);
+      if (refreshed.ok && refreshed.data) {
+        try {
+          await writeSession(refreshed.data);
+        } catch {
+          // Ignore if called inside Server Component render
+        }
+        return refreshed.data.user;
+      }
+    }
+>>>>>>> dev
     return null;
   }
 
   const result = await meRequest(accessToken);
 
+<<<<<<< HEAD
   return result.ok ? result.data : null;
 }
+=======
+  if (!result.ok) {
+    const rt = await readRefreshToken();
+    if (rt) {
+      const refreshed = await refreshSession(rt);
+      if (refreshed.ok && refreshed.data) {
+        try {
+          await writeSession(refreshed.data);
+        } catch {
+          // Ignore if called inside Server Component render
+        }
+        return refreshed.data.user;
+      }
+    }
+    return null;
+  }
+
+  return result.data;
+});
+>>>>>>> dev

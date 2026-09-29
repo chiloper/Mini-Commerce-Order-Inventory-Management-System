@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { loginAction, registerAction } from "../../lib/auth/actions";
+import { setCachedUser } from "../../lib/auth/auth-state";
 
 export default function LoginForm() {
   const router = useRouter();
@@ -34,6 +35,9 @@ export default function LoginForm() {
         setError(res.error || "เกิดข้อผิดพลาด");
         setLoading(false);
       } else {
+        if (res.user) {
+          setCachedUser(res.user);
+        }
         window.dispatchEvent(new Event("cart-updated"));
         router.push(redirectParam);
         router.refresh();

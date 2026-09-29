@@ -3,83 +3,79 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+export interface AdminNavItem {
+  href: string;
+  label: string;
+  icon: React.ReactNode;
+}
+
+export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
+  {
+    href: "/dashboard",
+    label: "ภาพรวม",
+    icon: (
+      <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <rect x="3" y="3" width="7" height="9" rx="1" />
+        <rect x="14" y="3" width="7" height="5" rx="1" />
+        <rect x="14" y="12" width="7" height="9" rx="1" />
+        <rect x="3" y="16" width="7" height="5" rx="1" />
+      </svg>
+    ),
+  },
+  {
+    href: "/order",
+    label: "คำสั่งซื้อ",
+    icon: (
+      <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+        <line x1="3" y1="6" x2="21" y2="6" />
+        <path d="M16 10a4 4 0 0 1-8 0" />
+      </svg>
+    ),
+  },
+  {
+    href: "/inventory",
+    label: "สินค้า & สต็อก",
+    icon: (
+      <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+        <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+        <line x1="12" y1="22.08" x2="12" y2="12" />
+      </svg>
+    ),
+  },
+  {
+    href: "/category",
+    label: "หมวดหมู่สินค้า",
+    icon: (
+      <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <rect x="3" y="3" width="7" height="7" rx="1" />
+        <rect x="14" y="3" width="7" height="7" rx="1" />
+        <rect x="14" y="14" width="7" height="7" rx="1" />
+        <rect x="3" y="14" width="7" height="7" rx="1" />
+      </svg>
+    ),
+  },
+  {
+    href: "/promotion",
+    label: "โปรโมชั่น",
+    icon: (
+      <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
+        <line x1="7" y1="7" x2="7.01" y2="7" />
+      </svg>
+    ),
+  },
+];
+
 export default function AdminSidebar() {
   const pathname = usePathname();
 
-  const navItems = [
-    {
-      href: "/dashboard",
-      label: "ภาพรวม",
-      icon: (
-        <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <rect x="3" y="3" width="7" height="9" rx="1" />
-          <rect x="14" y="3" width="7" height="5" rx="1" />
-          <rect x="14" y="12" width="7" height="9" rx="1" />
-          <rect x="3" y="16" width="7" height="5" rx="1" />
-        </svg>
-      ),
-    },
-    {
-      href: "/order",
-      label: "คำสั่งซื้อ",
-      icon: (
-        <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
-          <line x1="3" y1="6" x2="21" y2="6" />
-          <path d="M16 10a4 4 0 0 1-8 0" />
-        </svg>
-      ),
-    },
-    {
-      href: "/inventory",
-      label: "สินค้า & สต็อก",
-      icon: (
-        <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
-          <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
-          <line x1="12" y1="22.08" x2="12" y2="12" />
-        </svg>
-      ),
-    },
-    {
-      href: "/category",
-      label: "หมวดหมู่สินค้า",
-      icon: (
-        <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <rect x="3" y="3" width="7" height="7" rx="1" />
-          <rect x="14" y="3" width="7" height="7" rx="1" />
-          <rect x="14" y="14" width="7" height="7" rx="1" />
-          <rect x="3" y="14" width="7" height="7" rx="1" />
-        </svg>
-      ),
-    },
-    {
-      href: "/promotion",
-      label: "โปรโมชั่น",
-      icon: (
-        <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
-          <line x1="7" y1="7" x2="7.01" y2="7" />
-        </svg>
-      ),
-    },
-  ];
-
   return (
-    <aside className="w-full md:w-56 lg:w-60 shrink-0 bg-surface border-b md:border-b-0 md:border-r border-divider p-3.5 sm:p-4 flex flex-col gap-4">
-      {/* Brand Title (Desktop only) */}
-      <div className="hidden md:block pb-2 border-b border-divider">
-        <p className="m-0 font-serif font-bold text-base text-text">
-          Mini Commerce
-        </p>
-        <p className="m-0 text-[10px] font-mono tracking-widest uppercase font-bold text-accent-2">
-          Admin Console
-        </p>
-      </div>
-
-      {/* Navigation links (Horizontal on mobile, vertical on desktop) */}
-      <nav className="flex flex-row md:flex-col gap-1.5 overflow-x-auto -mx-1 px-1 md:mx-0 md:px-0">
-        {navItems.map((n) => {
+    <aside className="hidden md:flex md:w-56 lg:w-60 shrink-0 bg-surface border-r border-divider p-3.5 sm:p-4 flex-col gap-4">
+      {/* Navigation links (Vertical on desktop) */}
+      <nav className="flex flex-col gap-1.5">
+        {ADMIN_NAV_ITEMS.map((n) => {
           const active = pathname.startsWith(n.href);
           return (
             <Link

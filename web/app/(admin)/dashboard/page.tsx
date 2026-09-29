@@ -8,6 +8,7 @@ import AdminPagination from "../../../components/admin-pagination";
 import DailyRevenueChart from "../../../components/daily-revenue-chart";
 import { getDashboardStats, getPaginatedOrders } from "../../../lib/ecommerce-actions";
 import { getSessionUserAction } from "../../../lib/auth/actions";
+import { getCachedUser, setCachedUser } from "../../../lib/auth/auth-state";
 import type { DashboardStats, Order, Product, MetricCard, StockMovementLog } from "@/types/ecommerce";
 
 export default function AdminDashboardPage() {
@@ -34,16 +35,29 @@ export default function AdminDashboardPage() {
   };
 
   useEffect(() => {
-    getSessionUserAction().then((u) => {
-      if (!u || u.role !== "admin") {
-        router.push("/admin/console");
-        return;
-      }
+    const cached = getCachedUser();
+    if (cached && cached.role === "admin") {
       getDashboardStats().then((res) => {
         setData(res);
         setLoading(false);
       });
       fetchRecentOrders(1);
+    }
+
+    getSessionUserAction().then((u) => {
+      if (!u || u.role !== "admin") {
+        setCachedUser(null);
+        router.push("/admin/console");
+        return;
+      }
+      setCachedUser(u);
+      if (!cached || cached.role !== "admin") {
+        getDashboardStats().then((res) => {
+          setData(res);
+          setLoading(false);
+        });
+        fetchRecentOrders(1);
+      }
     });
   }, [router]);
 
