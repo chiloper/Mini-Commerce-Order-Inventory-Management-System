@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { ACCESS_TOKEN_COOKIE, accessCookieOptions, REFRESH_TOKEN_COOKIE, refreshCookieOptions } from "./config";
 import { cache } from "react";
 import { meRequest } from "./api";
+import { refreshSession } from "./refresh";
 
 export async function writeSession(token: AuthTokens): Promise<void> {
   const cookieStore = await cookies();
@@ -37,13 +38,41 @@ export async function readRefreshToken(): Promise<string | undefined> {
 }
 
 export const getCurrentUser = cache(async (): Promise<PublicUser | null> => {
-  const accessToken = await readAccesToken();
+  let accessToken = await readAccesToken();
 
   if (!accessToken) {
-    return null
+    const rt = await readRefreshToken();
+    if (rt) {
+      const refreshed = await refreshSession(rt);
+      if (refreshed.ok && refreshed.data) {
+        try {
+          await writeSession(refreshed.data);
+        } catch {
+          // Ignore if called inside Server Component render
+        }
+        return refreshed.data.user;
+      }
+    }
+    return null;
   }
 
   const result = await meRequest(accessToken);
 
-  return result.ok ? result.data : null;
-})
+  if (!result.ok) {
+    const rt = await readRefreshToken();
+    if (rt) {
+      const refreshed = await refreshSession(rt);
+      if (refreshed.ok && refreshed.data) {
+        try {
+          await writeSession(refreshed.data);
+        } catch {
+          // Ignore if called inside Server Component render
+        }
+        return refreshed.data.user;
+      }
+    }
+    return null;
+  }
+
+  return result.data;
+});

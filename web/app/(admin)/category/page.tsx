@@ -1,15 +1,19 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import AdminSidebar from "../../../components/admin-sidebar";
 import ConfirmModal from "../../../components/confirm-modal";
 import CategoryTable from "../../../components/category/category-table";
 import CreateCategoryModal from "../../../components/category/create-category-modal";
 import EditCategoryModal from "../../../components/category/edit-category-modal";
 import { getCategories, deleteCategoryAction } from "../../../lib/ecommerce-actions";
+import { getSessionUserAction } from "../../../lib/auth/actions";
+import { getCachedUser, setCachedUser } from "../../../lib/auth/auth-state";
 import type { Category } from "@/types/ecommerce";
 
 export default function AdminCategoryPage() {
+  const router = useRouter();
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -44,8 +48,23 @@ export default function AdminCategoryPage() {
   };
 
   useEffect(() => {
-    loadData();
-  }, []);
+    const cached = getCachedUser();
+    if (cached && cached.role === "admin") {
+      loadData();
+    }
+
+    getSessionUserAction().then((u) => {
+      if (!u || u.role !== "admin") {
+        setCachedUser(null);
+        router.push("/admin/console");
+        return;
+      }
+      setCachedUser(u);
+      if (!cached || cached.role !== "admin") {
+        loadData();
+      }
+    });
+  }, [router]);
 
   const filteredCategories = useMemo(() => {
     if (!search.trim()) return categories;

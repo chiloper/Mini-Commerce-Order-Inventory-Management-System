@@ -4,11 +4,12 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { getSessionUserAction, loginAction, logoutAction } from "../../../lib/auth/actions";
+import { getCachedUser, setCachedUser } from "../../../lib/auth/auth-state";
 import { PublicUser } from "../../../lib/auth/type";
 
 export default function AdminConsoleLoginPage() {
   const router = useRouter();
-  const [user, setUser] = useState<PublicUser | null>(null);
+  const [user, setUser] = useState<PublicUser | null>(() => getCachedUser());
   const [loading, setLoading] = useState(true);
 
   // Form states
@@ -20,6 +21,7 @@ export default function AdminConsoleLoginPage() {
   useEffect(() => {
     getSessionUserAction().then((u) => {
       setUser(u);
+      setCachedUser(u);
       setLoading(false);
       // If already logged in as admin, redirect directly to dashboard
       if (u && u.role === "admin") {
@@ -53,6 +55,7 @@ export default function AdminConsoleLoginPage() {
       }
 
       // Admin verified!
+      setCachedUser(res.user);
       setUser(res.user);
       router.push("/dashboard");
       router.refresh();
@@ -70,6 +73,7 @@ export default function AdminConsoleLoginPage() {
   };
 
   const handleLogoutAndSwitch = async () => {
+    setCachedUser(null);
     await logoutAction();
     setUser(null);
     setEmail("");

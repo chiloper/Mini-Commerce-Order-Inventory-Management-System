@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
 import { getSessionUserAction, logoutAction } from "../lib/auth/actions";
 import { PublicUser } from "../lib/auth/type";
+import { getCachedUser, setCachedUser, subscribeAuthState } from "../lib/auth/auth-state";
 import { getCart } from "../lib/ecommerce-actions";
 import CartDrawer from "../components/cart-drawer";
 import { ADMIN_NAV_ITEMS } from "../components/admin-sidebar";
@@ -12,7 +13,8 @@ import { ADMIN_NAV_ITEMS } from "../components/admin-sidebar";
 export default function SiteHeader() {
   const pathname = usePathname();
   const router = useRouter();
-  const [user, setUser] = useState<PublicUser | null>(null);
+  const [user, setUser] = useState<PublicUser | null>(() => getCachedUser());
+  const [authLoading, setAuthLoading] = useState<boolean>(() => !getCachedUser());
   const [cartCount, setCartCount] = useState<number>(0);
   const [cartDrawerOpen, setCartDrawerOpen] = useState<boolean>(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState<boolean>(false);
@@ -39,8 +41,20 @@ export default function SiteHeader() {
   };
 
   useEffect(() => {
+    const unsub = subscribeAuthState((u) => {
+      setUser(u);
+      setAuthLoading(false);
+    });
+    return () => unsub();
+  }, []);
+
+  useEffect(() => {
     setMobileSidebarOpen(false);
-    getSessionUserAction().then((u) => setUser(u));
+    getSessionUserAction().then((u) => {
+      setUser(u);
+      setCachedUser(u);
+      setAuthLoading(false);
+    });
     fetchCartCount();
 
     const handleCartUpdate = () => fetchCartCount();
@@ -80,9 +94,10 @@ export default function SiteHeader() {
   }, [accountMenuOpen, mobileSidebarOpen]);
 
   const handleLogout = async () => {
-    await logoutAction();
+    setCachedUser(null);
     setUser(null);
     setAccountMenuOpen(false);
+    await logoutAction();
     if (isAdminPath) {
       router.push("/admin/console");
     } else {
@@ -121,7 +136,12 @@ export default function SiteHeader() {
 
             {/* Right: Auth User Popover & Cart Button */}
             <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-              {user ? (
+              {authLoading && !user ? (
+                <div className="flex items-center gap-1.5 sm:gap-2 select-none animate-pulse" aria-hidden="true">
+                  <div className="w-14 sm:w-16 h-4 bg-neutral-200/70 rounded-md hidden xs:block" />
+                  <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-neutral-200/70 shrink-0" />
+                </div>
+              ) : user ? (
                 <div className="relative" ref={accountMenuRef}>
                   <button
                     type="button"
@@ -352,7 +372,12 @@ export default function SiteHeader() {
             <div className="flex items-center gap-2 sm:gap-3 shrink-0">
 
               {/* Admin Profile Trigger */}
-              {user ? (
+              {authLoading && !user ? (
+                <div className="flex items-center gap-1.5 sm:gap-2 select-none animate-pulse" aria-hidden="true">
+                  <div className="w-16 sm:w-20 h-4 bg-purple-200/60 rounded-md hidden xs:block" />
+                  <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-purple-200/60 shrink-0" />
+                </div>
+              ) : user ? (
                 <div className="relative" ref={accountMenuRef}>
                   <button
                     type="button"
